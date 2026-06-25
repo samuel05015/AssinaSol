@@ -2,14 +2,14 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, LogIn, UserPlus } from "lucide-react";
+import { FileText, Loader2, LogIn, ShieldCheck, Sparkles, UserPlus, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/components/auth/auth-provider";
 import { appBrand } from "@/lib/brand";
 
@@ -43,73 +43,121 @@ export function AuthForm() {
   }
 
   return (
-    <main className="grid min-h-screen bg-slate-950 px-4 py-8 text-white lg:grid-cols-[1fr_460px]">
-      <section className="flex min-h-[420px] flex-col justify-between rounded-lg bg-[linear-gradient(135deg,#0f172a_0%,#1e3a5f_62%,#ea580c_100%)] p-6 lg:p-10">
-        <div>
-          <div className="flex h-20 w-56 items-center justify-center rounded-lg bg-white/95 p-3 shadow-sm">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={appBrand.logoPath} alt={appBrand.name} className="max-h-full max-w-full object-contain" />
+    <main className="min-h-screen bg-slate-100 p-3 text-slate-950 sm:p-6">
+      <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] max-w-7xl overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-200 sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[1.05fr_0.95fr]">
+        <section className="flex flex-col justify-between bg-slate-950 p-5 text-white sm:p-8 lg:p-10">
+          <div>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex h-16 w-48 items-center justify-center rounded-lg bg-white p-2 shadow-sm ring-1 ring-white/15 sm:h-20 sm:w-64 sm:p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={appBrand.logoPath} alt={appBrand.name} className="max-h-full max-w-full object-contain" />
+              </div>
+              <Badge className="hidden bg-orange-500 text-white hover:bg-orange-500 sm:inline-flex">Sistema oficial</Badge>
+            </div>
+
+            <div className="mt-10 max-w-2xl">
+              <p className="flex items-center gap-2 text-sm font-medium text-orange-200">
+                <Sparkles className="size-4" />
+                {appBrand.tagline}
+              </p>
+              <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">
+                Acesse sua central de propostas solares.
+              </h1>
+              <p className="mt-4 max-w-xl text-sm leading-6 text-slate-300 sm:text-base">
+                Organize clientes, carregue contas de energia e gere propostas em PDF com calculo financeiro pronto para apresentar.
+              </p>
+            </div>
           </div>
-          <h1 className="mt-8 max-w-2xl text-4xl font-semibold tracking-tight lg:text-5xl">{appBrand.name}</h1>
-          <p className="mt-2 text-sm font-medium text-orange-100">{appBrand.tagline}</p>
-          <p className="mt-4 max-w-xl text-sm leading-6 text-slate-100">
-            Painel para cadastrar clientes, carregar contas de energia, calcular propostas solares e gerar PDFs financeiros profissionais.
-          </p>
-        </div>
-        <div className="mt-10 grid gap-3 text-sm text-slate-100 sm:grid-cols-3">
-          <div className="rounded-lg bg-white/10 p-3">Clientes por UC sem duplicidade</div>
-          <div className="rounded-lg bg-white/10 p-3">Extracao automatica de PDF</div>
-          <div className="rounded-lg bg-white/10 p-3">Fatura solar com demonstrativo</div>
-        </div>
-      </section>
 
-      <section className="flex items-center justify-center py-8 lg:py-0">
-        <Card className="w-full max-w-md rounded-lg bg-white text-slate-950">
-          <CardHeader>
-            <CardTitle>{mode === "sign-in" ? "Entrar no sistema" : "Criar acesso"}</CardTitle>
-            <CardDescription>
-              Use o e-mail e senha cadastrados no Supabase Auth.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!configured ? (
-              <Alert className="mb-4 border-orange-200 bg-orange-50">
-                <AlertTitle>Configure o Supabase para ativar login real</AlertTitle>
-                <AlertDescription>
-                  A navegacao interna esta liberada em modo preview enquanto as variaveis publicas do Supabase nao forem preenchidas.
-                </AlertDescription>
-              </Alert>
-            ) : null}
+          <div className="mt-10 grid gap-3 text-sm text-slate-200 sm:grid-cols-3">
+            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <FileText className="mb-3 size-5 text-orange-300" />
+              <p className="font-medium text-white">PDF profissional</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">Resumo, demonstrativo e comparativo em A4.</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <Zap className="mb-3 size-5 text-orange-300" />
+              <p className="font-medium text-white">Calculo em tempo real</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">Energia, taxas, bandeira, descontos e total.</p>
+            </div>
+            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <ShieldCheck className="mb-3 size-5 text-orange-300" />
+              <p className="font-medium text-white">Base por cliente</p>
+              <p className="mt-1 text-xs leading-5 text-slate-400">UC, dados cadastrais e historico de faturas.</p>
+            </div>
+          </div>
+        </section>
 
-            <form className="space-y-4" onSubmit={submit}>
-              <div className="space-y-1.5">
-                <Label>E-mail</Label>
-                <Input value={email} onChange={(event) => setEmail(event.target.value)} type="email" placeholder="voce@email.com" required />
+        <section className="flex items-center justify-center bg-slate-50 px-4 py-8 sm:px-8 lg:px-10">
+          <Card className="w-full max-w-md rounded-lg border-slate-200 bg-white shadow-sm">
+            <CardHeader className="space-y-5">
+              <div className="inline-flex w-full rounded-lg bg-slate-100 p-1">
+                <Button
+                  type="button"
+                  variant={mode === "sign-in" ? "default" : "ghost"}
+                  className={mode === "sign-in" ? "h-10 flex-1 bg-slate-950 text-white hover:bg-slate-900" : "h-10 flex-1 text-slate-600"}
+                  onClick={() => setMode("sign-in")}
+                >
+                  <LogIn className="size-4" />
+                  Entrar
+                </Button>
+                <Button
+                  type="button"
+                  variant={mode === "sign-up" ? "default" : "ghost"}
+                  className={mode === "sign-up" ? "h-10 flex-1 bg-slate-950 text-white hover:bg-slate-900" : "h-10 flex-1 text-slate-600"}
+                  onClick={() => setMode("sign-up")}
+                >
+                  <UserPlus className="size-4" />
+                  Criar conta
+                </Button>
               </div>
-              <div className="space-y-1.5">
-                <Label>Senha</Label>
-                <Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Minimo 6 caracteres" required minLength={6} />
+              <div>
+                <CardTitle className="text-2xl">{mode === "sign-in" ? "Entrar no sistema" : "Criar acesso"}</CardTitle>
+                <CardDescription className="mt-2">
+                  {mode === "sign-in"
+                    ? "Continue para o painel de clientes e faturas."
+                    : "Crie seu acesso para usar o AssinaSol com Supabase Auth."}
+                </CardDescription>
               </div>
-              <Button type="submit" className="w-full bg-orange-600 text-white hover:bg-orange-700" disabled={loading || !configured}>
-                {loading ? <Loader2 className="size-4 animate-spin" /> : mode === "sign-in" ? <LogIn className="size-4" /> : <UserPlus className="size-4" />}
-                {mode === "sign-in" ? "Entrar" : "Criar conta"}
-              </Button>
-            </form>
+            </CardHeader>
+            <CardContent>
+              {!configured ? (
+                <Alert className="mb-5 border-orange-200 bg-orange-50 text-orange-950">
+                  <AlertTitle>Configure o Supabase para ativar login real</AlertTitle>
+                  <AlertDescription>
+                    A navegacao interna esta liberada em modo preview enquanto as variaveis publicas do Supabase nao forem preenchidas.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
 
-            <Separator className="my-5" />
+              <form className="space-y-5" onSubmit={submit}>
+                <div className="space-y-2">
+                  <Label>E-mail</Label>
+                  <Input className="h-11" value={email} onChange={(event) => setEmail(event.target.value)} type="email" placeholder="voce@email.com" required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Senha</Label>
+                  <Input className="h-11" value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Minimo 6 caracteres" required minLength={6} />
+                </div>
+                <Button type="submit" className="h-11 w-full bg-orange-600 text-white hover:bg-orange-700" disabled={loading || !configured}>
+                  {loading ? <Loader2 className="size-4 animate-spin" /> : mode === "sign-in" ? <LogIn className="size-4" /> : <UserPlus className="size-4" />}
+                  {mode === "sign-in" ? "Entrar" : "Criar conta"}
+                </Button>
+              </form>
 
-            <Button type="button" variant="outline" className="w-full" onClick={() => setMode(mode === "sign-in" ? "sign-up" : "sign-in")}>
-              {mode === "sign-in" ? "Criar novo acesso" : "Ja tenho acesso"}
-            </Button>
+              {!configured ? (
+                <Button type="button" variant="outline" className="mt-4 h-11 w-full" onClick={() => router.push("/inicio")}>
+                  Continuar em modo preview
+                </Button>
+              ) : null}
 
-            {!configured ? (
-              <Button type="button" variant="ghost" className="mt-3 w-full" onClick={() => router.push("/inicio")}>
-                Continuar em modo preview
-              </Button>
-            ) : null}
-          </CardContent>
-        </Card>
-      </section>
+              <p className="mt-5 text-center text-xs leading-5 text-muted-foreground">
+                Ambiente protegido pela autenticacao do Supabase.
+              </p>
+            </CardContent>
+          </Card>
+        </section>
+      </div>
     </main>
   );
 }
