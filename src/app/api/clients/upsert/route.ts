@@ -4,6 +4,17 @@ import { getRequestUserId, getSupabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
+type ExistingClientRow = {
+  document: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+};
+
+function keepExistingWhenBlank(value: string | undefined, existing: string | null | undefined) {
+  return value?.trim() || existing || null;
+}
+
 export async function POST(request: Request) {
   const parsed = clientSchema.safeParse(await request.json());
   if (!parsed.success) {
@@ -21,14 +32,36 @@ export async function POST(request: Request) {
     });
   }
 
+  let existingClient: ExistingClientRow | null = null;
+
+  if (client.id) {
+    const { data } = await supabase
+      .from("clients")
+      .select("document, email, phone, address")
+      .eq("id", client.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    existingClient = data as ExistingClientRow | null;
+  } else {
+    const { data } = await supabase
+      .from("clients")
+      .select("document, email, phone, address")
+      .eq("user_id", userId)
+      .eq("uc_code", client.ucCode)
+      .maybeSingle();
+
+    existingClient = data as ExistingClientRow | null;
+  }
+
   const payload = {
       user_id: userId,
       uc_code: client.ucCode,
       name: client.name,
-      document: client.document || null,
-      email: client.email || null,
-      phone: client.phone || null,
-      address: client.address || null,
+      document: keepExistingWhenBlank(client.document, existingClient?.document),
+      email: keepExistingWhenBlank(client.email, existingClient?.email),
+      phone: keepExistingWhenBlank(client.phone, existingClient?.phone),
+      address: keepExistingWhenBlank(client.address, existingClient?.address),
   };
 
   const query = client.id

@@ -38,7 +38,7 @@ import { appBrand } from "@/lib/brand";
 import { calculateInvoice, calculateLateFee } from "@/lib/solar/calculate";
 import { formatCurrency, formatKwh, maskBrazilianPhone, maskCpfCnpj } from "@/lib/solar/format";
 import { invoiceCalculationSchema, type InvoiceCalculationSchema } from "@/lib/solar/schemas";
-import type { ExtractedInvoiceData, InvoiceAdjustment, LateFeeRecord } from "@/lib/solar/types";
+import type { ClientData, ExtractedInvoiceData, InvoiceAdjustment, LateFeeRecord } from "@/lib/solar/types";
 import { cn } from "@/lib/utils";
 
 const preferencesKey = "solar-faturas-preferences";
@@ -236,6 +236,10 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   return data;
 }
 
+function hasText(value?: string | null) {
+  return Boolean(value?.trim());
+}
+
 export function UploadInvoiceFlow() {
   const { getAuthHeaders } = useAuth();
   const [file, setFile] = useState<File | null>(null);
@@ -367,13 +371,44 @@ export function UploadInvoiceFlow() {
     setValue("dueDate", buildDueDate(next.day, next.month, next.year), { shouldDirty: true, shouldValidate: true });
   }
 
+  function setClientTextIfUseful(
+    field: "document" | "email" | "phone" | "address",
+    value: string | undefined,
+    options?: { mask?: (value: string) => string },
+  ) {
+    const nextValue = value?.trim();
+    if (!nextValue) return;
+
+    const current = getValues().client[field];
+    if (hasText(current)) return;
+
+    setClientText(field, options?.mask ? options.mask(nextValue) : nextValue);
+  }
+
+  function setClientTextFromRegistered(
+    field: "document" | "email" | "phone" | "address",
+    value: string | undefined,
+    options?: { mask?: (value: string) => string },
+  ) {
+    const nextValue = value?.trim();
+    if (!nextValue) return;
+    setClientText(field, options?.mask ? options.mask(nextValue) : nextValue);
+  }
+
+  function setClientText(field: "document" | "email" | "phone" | "address", value: string) {
+    if (field === "document") setValue("client.document", value, { shouldValidate: true });
+    if (field === "email") setValue("client.email", value, { shouldValidate: true });
+    if (field === "phone") setValue("client.phone", value, { shouldValidate: true });
+    if (field === "address") setValue("client.address", value, { shouldValidate: true });
+  }
+
   function applyExtractedData(data: ExtractedInvoiceData) {
     if (data.ucCode) setValue("client.ucCode", data.ucCode, { shouldValidate: true });
     if (data.clientName) setValue("client.name", data.clientName, { shouldValidate: true });
-    if ("document" in data) setValue("client.document", data.document ? maskCpfCnpj(data.document) : "", { shouldValidate: true });
-    if (data.address) setValue("client.address", data.address);
-    if (data.email) setValue("client.email", data.email);
-    if (data.phone) setValue("client.phone", maskBrazilianPhone(data.phone));
+    setClientTextIfUseful("document", data.document, { mask: maskCpfCnpj });
+    setClientTextIfUseful("address", data.address);
+    setClientTextIfUseful("email", data.email);
+    setClientTextIfUseful("phone", data.phone, { mask: maskBrazilianPhone });
     if (data.referenceMonth) setValue("referenceMonth", data.referenceMonth, { shouldValidate: true });
     if (data.dueDate) setValue("dueDate", data.dueDate, { shouldValidate: true });
     if (data.totalConsumptionKwh !== undefined) setValue("totalConsumptionKwh", data.totalConsumptionKwh);
@@ -384,6 +419,33 @@ export function UploadInvoiceFlow() {
     if (data.fioBValue !== undefined) setValue("fioBValue", data.fioBValue);
     if (data.tariffFlag) setValue("tariffFlag", data.tariffFlag);
     setMissingFields(data.missingFields ?? []);
+  }
+
+  function mergeRegisteredClient(client: ClientData) {
+    if (client.id) setValue("client.id", client.id);
+    if (client.ucCode) setValue("client.ucCode", client.ucCode, { shouldValidate: true });
+    if (client.name) setValue("client.name", client.name, { shouldValidate: true });
+    setClientTextFromRegistered("document", client.document, { mask: maskCpfCnpj });
+    setClientTextFromRegistered("email", client.email);
+    setClientTextFromRegistered("phone", client.phone, { mask: maskBrazilianPhone });
+    setClientTextFromRegistered("address", client.address);
+  }
+
+  async function loadRegisteredClientByUc(ucCode?: string) {
+    const normalizedUcCode = ucCode?.trim();
+    if (!normalizedUcCode) return null;
+
+    try {
+      const params = new URLSearchParams({ search: normalizedUcCode });
+      const data = await parseJsonResponse<{ clients?: ClientData[] }>(await fetch(`/api/clients?${params.toString()}`, {
+        headers: getAuthHeaders(),
+      }));
+      const existing = data.clients?.find((client) => client.ucCode.trim() === normalizedUcCode) ?? null;
+      if (existing) mergeRegisteredClient(existing);
+      return existing;
+    } catch {
+      return null;
+    }
   }
 
   async function extractPdf() {
@@ -405,6 +467,7 @@ export function UploadInvoiceFlow() {
       }));
 
       applyExtractedData(data);
+      const registeredClient = await loadRegisteredClientByUc(data.ucCode);
       saveRememberedSettings();
 
       if (data.missingFields?.length) {
@@ -413,7 +476,9 @@ export function UploadInvoiceFlow() {
         toast.success("Dados extraidos do PDF.");
       }
 
-      if (data.ucCode) {
+      if (registeredClient) {
+        setClientNotice("Cliente existente encontrado pela UC. Dados pessoais cadastrados foram preservados e campos vazios foram completados.");
+      } else if (data.ucCode) {
         setClientNotice("UC encontrada. Salve para criar ou atualizar o cliente sem duplicidade.");
       } else {
         setClientNotice("Novo cliente detectado ou UC nao localizada. Preencha a UC antes de salvar.");
