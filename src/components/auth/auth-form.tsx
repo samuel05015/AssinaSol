@@ -43,7 +43,7 @@ export function AuthForm() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-3 text-slate-950 sm:p-6">
+    <main data-auth-layout="assinasol-product-login" className="min-h-screen bg-slate-100 p-3 text-slate-950 sm:p-6">
       <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] max-w-7xl overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-200 sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[1.05fr_0.95fr]">
         <section className="flex flex-col justify-between bg-slate-950 p-5 text-white sm:p-8 lg:p-10">
           <div>
