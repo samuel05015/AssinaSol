@@ -425,7 +425,7 @@ export function UploadInvoiceFlow() {
     }
   }
 
-  async function saveClient() {
+  async function saveClient(options?: { silent?: boolean }) {
     const values = getValues().client;
     setSavingClient(true);
     try {
@@ -435,9 +435,13 @@ export function UploadInvoiceFlow() {
         body: JSON.stringify(values),
       }));
       if (data.client.id) setValue("client.id", data.client.id);
-      toast.success(data.warning ?? "Dados do cliente salvos.");
+      if (!options?.silent) {
+        toast.success(data.warning ?? "Dados do cliente salvos.");
+      }
+      return true;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Nao foi possivel salvar o cliente.");
+      return false;
     } finally {
       setSavingClient(false);
     }
@@ -492,14 +496,25 @@ export function UploadInvoiceFlow() {
     setGeneratingPdf(true);
     setPdfUrl("");
     try {
+      const clientSaved = await saveClient({ silent: true });
+      if (!clientSaved) return;
+
       saveRememberedSettings();
+      const valuesWithSavedClient = {
+        ...values,
+        client: {
+          ...values.client,
+          id: getValues().client.id,
+        },
+      };
+
       const data = await parseJsonResponse<{ url: string; warning?: string }>(await fetch("/api/invoices/generate-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify(values),
+        body: JSON.stringify(valuesWithSavedClient),
       }));
       setPdfUrl(data.url);
-      toast.success(data.warning ?? "Fatura Solar gerada com sucesso.");
+      toast.success(data.warning ?? "Cliente salvo e Fatura Solar gerada com sucesso.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Nao foi possivel gerar o PDF.");
     } finally {
@@ -579,6 +594,14 @@ export function UploadInvoiceFlow() {
             </Section>
 
             <Section title="2. Dados da Conta" description="Revise os dados do cliente antes de salvar ou atualizar a UC." icon={ReceiptText}>
+              <Alert className="mb-4 border-slate-200 bg-slate-50">
+                <Database className="size-4 text-slate-700" />
+                <AlertTitle>Como o cliente e salvo</AlertTitle>
+                <AlertDescription>
+                  Adicionar cliente salva um cadastro manual. Carregar fatura tambem salva ou atualiza o cliente pela UC, seja pelo botao abaixo ou automaticamente ao gerar o PDF.
+                </AlertDescription>
+              </Alert>
+
               {clientNotice ? (
                 <Alert className="mb-4 border-blue-200 bg-blue-50">
                   <CheckCircle2 className="size-4 text-blue-700" />
@@ -617,7 +640,7 @@ export function UploadInvoiceFlow() {
               </div>
 
               <div className="mt-5 flex flex-wrap gap-3">
-                <Button type="button" onClick={saveClient} disabled={savingClient}>
+                <Button type="button" onClick={() => void saveClient()} disabled={savingClient}>
                   {savingClient ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                   Salvar dados do cliente
                 </Button>
@@ -663,21 +686,29 @@ export function UploadInvoiceFlow() {
                   <Input type="number" step="0.001" {...register("accumulatedCreditKwh", { valueAsNumber: true })} />
                 </Field>
                 <Field label="Chave PIX para esta fatura">
-                  <Input {...register("pixKey")} placeholder="CPF, CNPJ, telefone, e-mail ou chave aleatoria" />
+                  <div className="space-y-2">
+                    <Input {...register("pixKey")} placeholder="CPF, CNPJ, telefone, e-mail ou chave aleatoria" />
+                    <RememberCheckbox checked={remember.pixKey} onChange={(value) => setRemember({ ...remember, pixKey: value })} label="Lembrar esta chave PIX para proximas faturas" />
+                  </div>
                 </Field>
-                <RememberCheckbox checked={remember.pixKey} onChange={(value) => setRemember({ ...remember, pixKey: value })} />
                 <Field label="Recebedor desta fatura" error={errors.receiverName?.message}>
-                  <Input {...register("receiverName")} placeholder="Nome completo do recebedor" />
+                  <div className="space-y-2">
+                    <Input {...register("receiverName")} placeholder="Nome completo do recebedor" />
+                    <RememberCheckbox checked={remember.receiverName} onChange={(value) => setRemember({ ...remember, receiverName: value })} label="Lembrar este recebedor" />
+                  </div>
                 </Field>
-                <RememberCheckbox checked={remember.receiverName} onChange={(value) => setRemember({ ...remember, receiverName: value })} />
                 <Field label="Preco por kWh" helper="Defina o valor de cobranca por kWh Solar para cobrar seu cliente." error={errors.pricePerKwh?.message}>
-                  <Input type="number" step="0.0001" {...register("pricePerKwh", { valueAsNumber: true })} />
+                  <div className="space-y-2">
+                    <Input type="number" step="0.0001" {...register("pricePerKwh", { valueAsNumber: true })} />
+                    <RememberCheckbox checked={remember.pricePerKwh} onChange={(value) => setRemember({ ...remember, pricePerKwh: value })} label="Lembrar este preco por kWh" />
+                  </div>
                 </Field>
-                <RememberCheckbox checked={remember.pricePerKwh} onChange={(value) => setRemember({ ...remember, pricePerKwh: value })} />
                 <Field label="Desconto (%)" helper="Incide somente sobre o valor da energia solar." error={errors.discountPercent?.message}>
-                  <Input type="number" step="0.01" {...register("discountPercent", { valueAsNumber: true })} />
+                  <div className="space-y-2">
+                    <Input type="number" step="0.01" {...register("discountPercent", { valueAsNumber: true })} />
+                    <RememberCheckbox checked={remember.discountPercent} onChange={(value) => setRemember({ ...remember, discountPercent: value })} label="Lembrar este desconto" />
+                  </div>
                 </Field>
-                <RememberCheckbox checked={remember.discountPercent} onChange={(value) => setRemember({ ...remember, discountPercent: value })} />
               </div>
 
               <Separator className="my-6" />
