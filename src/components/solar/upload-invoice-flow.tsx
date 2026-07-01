@@ -450,7 +450,7 @@ export function UploadInvoiceFlow() {
 
   async function extractPdf() {
     if (!file) {
-      toast.error("Selecione um PDF antes de extrair os dados.");
+      toast.info("O PDF e opcional. Anexe um arquivo apenas se quiser preencher os campos automaticamente.");
       return;
     }
 
@@ -614,7 +614,15 @@ export function UploadInvoiceFlow() {
 
         <form className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" onSubmit={handleSubmit(generatePdf, onInvalid)}>
           <div className="space-y-6">
-            <Section title="1. Selecionar PDF" description="Envie a conta de energia e informe senha apenas se o arquivo for protegido." icon={Upload}>
+            <Section title="1. PDF da conta (opcional)" description="Anexe a conta de energia apenas se quiser preencher os dados automaticamente. Tambem e possivel seguir preenchendo tudo manualmente." icon={Upload}>
+              <Alert className="mb-4 border-blue-200 bg-blue-50">
+                <FileText className="size-4 text-blue-700" />
+                <AlertTitle>O PDF nao e obrigatorio</AlertTitle>
+                <AlertDescription>
+                  Sem arquivo, preencha os dados do cliente e da fatura nos campos abaixo e clique em Gerar Fatura Solar normalmente.
+                </AlertDescription>
+              </Alert>
+
               <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_260px]">
                 <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4">
                   <Input
@@ -642,10 +650,15 @@ export function UploadInvoiceFlow() {
                     <Input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Senha opcional" type="password" />
                   </Field>
                   <RememberCheckbox checked={remember.pdfPassword} onChange={(value) => setRemember({ ...remember, pdfPassword: value })} label="Lembrar senha" />
-                  <Button type="button" className="w-full bg-orange-600 text-white hover:bg-orange-700" onClick={extractPdf} disabled={extracting}>
+                  <Button type="button" className="w-full bg-orange-600 text-white hover:bg-orange-700 disabled:bg-slate-300" onClick={extractPdf} disabled={extracting || !file}>
                     {extracting ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />}
                     Extrair Dados
                   </Button>
+                  {!file ? (
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Para preencher manualmente, ignore esta etapa e continue nos dados da conta.
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
