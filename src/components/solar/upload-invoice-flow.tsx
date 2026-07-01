@@ -29,7 +29,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -51,6 +51,22 @@ type LateFeeDraft = {
   finePercent: number;
   interestPercent: number;
   interestType: "monthly" | "daily";
+};
+
+const tariffFlagLabels: Record<InvoiceCalculationSchema["tariffFlag"], string> = {
+  green: "Verde",
+  yellow: "Amarela",
+  red: "Vermelha",
+};
+
+const interestTypeLabels: Record<LateFeeDraft["interestType"], string> = {
+  monthly: "Mensal, a.m.",
+  daily: "Diario, a.d.",
+};
+
+const adjustmentTypeLabels: Record<InvoiceAdjustment["type"], string> = {
+  fee: "Taxa",
+  discount: "Desconto",
 };
 
 function getRememberedPdfPassword() {
@@ -702,7 +718,9 @@ export function UploadInvoiceFlow() {
               <div className="grid gap-3 md:grid-cols-[150px_1fr_160px_auto]">
                 <Select value={adjustmentDraft.type} onValueChange={(value) => setAdjustmentDraft({ ...adjustmentDraft, type: value as "fee" | "discount" })}>
                   <SelectTrigger className="w-full bg-white">
-                    <SelectValue placeholder="Tipo" />
+                    <span data-slot="select-value" className="flex flex-1 text-left">
+                      {adjustmentTypeLabels[adjustmentDraft.type]}
+                    </span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="fee">Taxa</SelectItem>
@@ -737,7 +755,9 @@ export function UploadInvoiceFlow() {
                 <Field label="Bandeira selecionada">
                   <Select value={watched.tariffFlag} onValueChange={(value) => setValue("tariffFlag", value as "green" | "yellow" | "red")}>
                     <SelectTrigger className="w-full bg-white">
-                      <SelectValue placeholder="Bandeira" />
+                      <span data-slot="select-value" className="flex flex-1 text-left">
+                        {tariffFlagLabels[watched.tariffFlag ?? "green"]}
+                      </span>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="green">Verde</SelectItem>
@@ -765,22 +785,38 @@ export function UploadInvoiceFlow() {
 
             <Section title="Multa e juros de mora" description="Registre valores de faturas pagas em atraso. Eles entram automaticamente nesta fatura como pendentes." icon={AlertCircle}>
               <div className="grid gap-3 md:grid-cols-3">
-                <Input value={lateFeeDraft.originalInvoiceReference} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, originalInvoiceReference: event.target.value })} placeholder="Mes de referencia" />
-                <Input type="date" value={lateFeeDraft.originalDueDate} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, originalDueDate: event.target.value })} />
-                <Input type="date" value={lateFeeDraft.paymentDate} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, paymentDate: event.target.value })} />
-                <Input type="number" step="0.01" value={lateFeeDraft.originalAmount} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, originalAmount: Number(event.target.value) })} placeholder="Valor da fatura" />
-                <Input type="number" step="0.01" value={lateFeeDraft.finePercent} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, finePercent: Number(event.target.value) })} placeholder="% multa" />
-                <Input type="number" step="0.01" value={lateFeeDraft.interestPercent} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, interestPercent: Number(event.target.value) })} placeholder="% juros" />
-                <Select value={lateFeeDraft.interestType} onValueChange={(value) => setLateFeeDraft({ ...lateFeeDraft, interestType: value as "monthly" | "daily" })}>
-                  <SelectTrigger className="w-full bg-white">
-                    <SelectValue placeholder="Tipo de juros" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="monthly">Mensal, a.m.</SelectItem>
-                    <SelectItem value="daily">Diario, a.d.</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button type="button" onClick={addLateFee}>
+                <Field label="Mes de referencia da fatura em atraso" helper="Informe o mes/ano da fatura que foi paga fora do prazo. Exemplo: Maio/2026.">
+                  <Input value={lateFeeDraft.originalInvoiceReference} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, originalInvoiceReference: event.target.value })} placeholder="Ex.: Maio/2026" />
+                </Field>
+                <Field label="Vencimento original" helper="Data em que aquela fatura deveria ter sido paga.">
+                  <Input type="date" value={lateFeeDraft.originalDueDate} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, originalDueDate: event.target.value })} />
+                </Field>
+                <Field label="Data de pagamento" helper="Data em que o cliente realmente pagou a fatura atrasada.">
+                  <Input type="date" value={lateFeeDraft.paymentDate} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, paymentDate: event.target.value })} />
+                </Field>
+                <Field label="Valor original da fatura" helper="Valor base usado para calcular multa e juros.">
+                  <Input type="number" step="0.01" value={lateFeeDraft.originalAmount} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, originalAmount: Number(event.target.value) })} placeholder="Ex.: 150,00" />
+                </Field>
+                <Field label="Percentual de multa" helper="Percentual fixo cobrado sobre o valor original. Exemplo: 2%.">
+                  <Input type="number" step="0.01" value={lateFeeDraft.finePercent} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, finePercent: Number(event.target.value) })} placeholder="Ex.: 2" />
+                </Field>
+                <Field label="Percentual de juros de mora" helper="Taxa usada para calcular os juros pelo atraso. Exemplo: 1% a.m. ou 0,033% a.d.">
+                  <Input type="number" step="0.01" value={lateFeeDraft.interestPercent} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, interestPercent: Number(event.target.value) })} placeholder="Ex.: 1" />
+                </Field>
+                <Field label="Tipo de juros" helper="Mensal divide a taxa por 30 dias. Diario aplica a taxa em cada dia de atraso.">
+                  <Select value={lateFeeDraft.interestType} onValueChange={(value) => setLateFeeDraft({ ...lateFeeDraft, interestType: value as "monthly" | "daily" })}>
+                    <SelectTrigger className="w-full bg-white">
+                      <span data-slot="select-value" className="flex flex-1 text-left">
+                        {interestTypeLabels[lateFeeDraft.interestType]}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="monthly">Mensal, a.m.</SelectItem>
+                      <SelectItem value="daily">Diario, a.d.</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Button type="button" className="md:mt-6" onClick={addLateFee}>
                   <Save className="size-4" />
                   Salvar multa/juros
                 </Button>
