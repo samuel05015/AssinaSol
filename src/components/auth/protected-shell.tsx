@@ -97,10 +97,8 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
       <header className="border-b bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-28 items-center justify-center rounded-lg bg-white p-1 ring-1 ring-slate-200">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={appBrand.logoPath} alt={appBrand.name} className="max-h-full max-w-full object-contain" />
-            </div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={appBrand.logoPath} alt={appBrand.name} className="h-14 w-auto max-w-48 object-contain" />
             <div>
               <p className="text-sm font-semibold text-slate-950">{companyName}</p>
               <p className="text-xs text-muted-foreground">{user?.email ?? "Modo preview sem Supabase"}</p>
