@@ -10,6 +10,7 @@ import {
   Calculator,
   CalendarDays,
   CheckCircle2,
+  Copy,
   Database,
   Download,
   FileText,
@@ -250,6 +251,7 @@ export function UploadInvoiceFlow() {
   const [savingClient, setSavingClient] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [pdfUrl, setPdfUrl] = useState("");
+  const [pixCopyPaste, setPixCopyPaste] = useState("");
   const [clientNotice, setClientNotice] = useState("");
   const [adjustmentDraft, setAdjustmentDraft] = useState<InvoiceAdjustment>({ type: "fee", name: "", amount: 0 });
   const [lateFeeDraft, setLateFeeDraft] = useState<LateFeeDraft>({
@@ -602,6 +604,7 @@ export function UploadInvoiceFlow() {
   async function generatePdf(values: InvoiceCalculationSchema) {
     setGeneratingPdf(true);
     setPdfUrl("");
+    setPixCopyPaste("");
     try {
       const clientSaved = await saveClient({ silent: true });
       if (!clientSaved) return;
@@ -615,12 +618,13 @@ export function UploadInvoiceFlow() {
         },
       };
 
-      const data = await parseJsonResponse<{ url: string; warning?: string }>(await fetch("/api/invoices/generate-pdf", {
+      const data = await parseJsonResponse<{ url: string; pixCopyPaste?: string; warning?: string }>(await fetch("/api/invoices/generate-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(valuesWithSavedClient),
       }));
       setPdfUrl(data.url);
+      setPixCopyPaste(data.pixCopyPaste ?? "");
       toast.success(data.warning ?? "Cliente salvo e Fatura Solar gerada com sucesso.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Nao foi possivel gerar o PDF.");
@@ -636,6 +640,17 @@ export function UploadInvoiceFlow() {
 
   const missing = (field: string) => missingFields.includes(field);
   const fileSize = file ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : "";
+
+  async function copyPixToClipboard() {
+    if (!pixCopyPaste) return;
+
+    try {
+      await navigator.clipboard.writeText(pixCopyPaste);
+      toast.success("PIX copia e cola copiado.");
+    } catch {
+      toast.error("Nao foi possivel copiar automaticamente. Selecione o codigo e copie manualmente.");
+    }
+  }
 
   return (
     <div className="bg-[linear-gradient(180deg,#f8fafc_0%,#eef3f8_100%)]">
@@ -1026,6 +1041,26 @@ export function UploadInvoiceFlow() {
                     <FileText className="size-4" />
                     Baixar / abrir PDF gerado
                   </a>
+                ) : null}
+                {pixCopyPaste ? (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-blue-950">PIX copia e cola</p>
+                        <p className="text-xs text-blue-800">Use este botao para copiar sem quebras de linha do PDF.</p>
+                      </div>
+                      <Button type="button" size="sm" variant="outline" onClick={copyPixToClipboard}>
+                        <Copy className="size-4" />
+                        Copiar
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={pixCopyPaste}
+                      readOnly
+                      className="mt-3 h-24 resize-none bg-white font-mono text-[10px] leading-4"
+                      onFocus={(event) => event.currentTarget.select()}
+                    />
+                  </div>
                 ) : null}
               </CardContent>
             </Card>

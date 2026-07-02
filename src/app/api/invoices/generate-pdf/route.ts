@@ -7,6 +7,7 @@ import { invoiceCalculationSchema } from "@/lib/solar/schemas";
 import { buildInvoicePdf } from "@/lib/solar/pdf-generator";
 import { getRequestUserId, getSupabaseAdmin } from "@/lib/supabase/server";
 import type { PdfBrandSettings } from "@/lib/solar/types";
+import { buildPixCopyPaste } from "@/lib/solar/pix";
 
 export const runtime = "nodejs";
 
@@ -212,12 +213,19 @@ export async function POST(request: Request) {
   const inputWithNumber = { ...input, invoiceNumber };
   const calculation = calculateInvoice(inputWithNumber);
   const brandSettings = await getBrandSettings(supabase, userId);
+  const pixCopyPaste = buildPixCopyPaste({
+    pixKey: inputWithNumber.pixKey,
+    receiverName: inputWithNumber.receiverName,
+    amount: calculation.finalTotal,
+    invoiceNumber: calculation.invoiceNumber,
+  });
   const pdfBytes = await buildInvoicePdf(inputWithNumber, calculation, brandSettings);
 
   if (!supabase) {
     return NextResponse.json({
       url: toDataUrl(pdfBytes),
       calculation,
+      pixCopyPaste,
       warning: "Supabase nao configurado. PDF retornado como data URL.",
     });
   }
@@ -243,5 +251,5 @@ export async function POST(request: Request) {
     pdfUrl: data.publicUrl,
   });
 
-  return NextResponse.json({ url: data.publicUrl, calculation, invoiceId });
+  return NextResponse.json({ url: data.publicUrl, calculation, invoiceId, pixCopyPaste });
 }
