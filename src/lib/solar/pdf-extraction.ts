@@ -1,5 +1,3 @@
-import path from "node:path";
-import { pathToFileURL } from "node:url";
 import type { ExtractedInvoiceData, TariffFlag } from "./types";
 import { parseBrazilianNumber } from "./format";
 
@@ -122,19 +120,35 @@ function detectTariffFlag(text: string): TariffFlag | undefined {
   return undefined;
 }
 
+async function ensurePdfServerPolyfills() {
+  if (
+    typeof globalThis.DOMMatrix !== "undefined"
+    && typeof globalThis.ImageData !== "undefined"
+    && typeof globalThis.Path2D !== "undefined"
+  ) {
+    return;
+  }
+
+  const canvas = await import("@napi-rs/canvas");
+  const target = globalThis as Record<string, unknown>;
+
+  target.DOMMatrix ??= canvas.DOMMatrix;
+  target.ImageData ??= canvas.ImageData;
+  target.Path2D ??= canvas.Path2D;
+}
+
 export async function extractInvoiceFromPdf(file: File, password?: string): Promise<ExtractedInvoiceData> {
+  await ensurePdfServerPolyfills();
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-  pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(
-    path.join(process.cwd(), "node_modules", "pdfjs-dist", "legacy", "build", "pdf.worker.mjs")
-  ).toString();
 
   const bytes = new Uint8Array(await file.arrayBuffer());
   const document = await pdfjs.getDocument({
     data: bytes,
     password,
     disableFontFace: true,
+    disableWorker: true,
     useSystemFonts: true,
-  }).promise;
+  } as Parameters<typeof pdfjs.getDocument>[0]).promise;
 
   const pages: string[] = [];
   for (let index = 1; index <= document.numPages; index += 1) {
