@@ -1,7 +1,9 @@
 import { PDFDocument, StandardFonts, rgb, type PDFImage, type PDFFont, type PDFPage } from "pdf-lib";
+import QRCode from "qrcode";
 import { appBrand } from "@/lib/brand";
 import type { InvoiceCalculationInput, InvoiceCalculationResult, PdfBrandSettings } from "./types";
 import { formatCurrency, formatKwh, formatNumber } from "./format";
+import { buildPixCopyPaste } from "./pix";
 
 const A4 = { width: 595.28, height: 841.89 };
 const colors = {
@@ -166,6 +168,22 @@ async function embedLogo(doc: PDFDocument, settings: PdfBrandSettings) {
   return null;
 }
 
+async function embedQrCode(doc: PDFDocument, payload: string) {
+  if (!payload) return null;
+
+  try {
+    const dataUrl = await QRCode.toDataURL(payload, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 220,
+    });
+    const base64 = dataUrl.split(",")[1];
+    return await doc.embedPng(Buffer.from(base64, "base64"));
+  } catch {
+    return null;
+  }
+}
+
 function drawFittedLogo(ctx: PdfContext, logo: PDFImage, x: number, y: number, maxWidth: number, maxHeight: number) {
   const scale = Math.min(maxWidth / logo.width, maxHeight / logo.height);
   const width = logo.width * scale;
@@ -186,6 +204,13 @@ export async function buildInvoicePdf(input: InvoiceCalculationInput, calculatio
   const regular = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const logo = await embedLogo(doc, brand);
+  const pixCopyPaste = buildPixCopyPaste({
+    pixKey: input.pixKey,
+    receiverName: input.receiverName,
+    amount: calculation.finalTotal,
+    invoiceNumber: calculation.invoiceNumber,
+  });
+  const pixQrCode = await embedQrCode(doc, pixCopyPaste);
   const ctx: PdfContext = {
     doc,
     page: doc.addPage([A4.width, A4.height]),
@@ -306,9 +331,22 @@ export async function buildInvoicePdf(input: InvoiceCalculationInput, calculatio
 
   if (input.pixKey) {
     sectionTitle(ctx, "PIX");
-    tableRow(ctx, "Chave PIX", input.pixKey, true);
-    tableRow(ctx, "Recebedor", input.receiverName || "-");
-    tableRow(ctx, "Valor total", formatCurrency(calculation.finalTotal), true);
+    ensureSpace(ctx, pixQrCode ? 150 : 86);
+    if (pixQrCode) {
+      ctx.page.drawRectangle({ x: 42, y: ctx.y - 132, width: 511, height: 132, color: colors.lightGray });
+      drawFittedLogo(ctx, pixQrCode, 430, ctx.y - 118, 96, 96);
+      drawText(ctx, "Pagamento via PIX", 54, ctx.y - 18, { size: 11, font: bold, color: colors.navy });
+      drawText(ctx, `Chave: ${input.pixKey}`, 54, ctx.y - 38, { size: 9, maxWidth: 340 });
+      drawText(ctx, `Recebedor: ${input.receiverName || "-"}`, 54, ctx.y - 56, { size: 9, maxWidth: 340 });
+      drawText(ctx, `Valor total: ${formatCurrency(calculation.finalTotal)}`, 54, ctx.y - 74, { size: 10, font: bold, color: accent });
+      drawText(ctx, "PIX copia e cola:", 54, ctx.y - 96, { size: 8, color: colors.gray, font: bold });
+      drawText(ctx, pixCopyPaste, 54, ctx.y - 110, { size: 6.5, maxWidth: 350, color: colors.gray, lineHeight: 8 });
+      ctx.y -= 154;
+    } else {
+      tableRow(ctx, "Chave PIX", input.pixKey, true);
+      tableRow(ctx, "Recebedor", input.receiverName || "-");
+      tableRow(ctx, "Valor total", formatCurrency(calculation.finalTotal), true);
+    }
   }
 
   if (input.notes) {

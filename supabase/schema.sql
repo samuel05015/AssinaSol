@@ -48,8 +48,56 @@ create table if not exists public.invoices (
   notes text,
   pdf_url text,
   status text not null default 'draft',
+  sent_at timestamptz,
+  paid_at timestamptz,
+  canceled_at timestamptz,
+  source_invoice_id uuid references public.invoices(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+alter table public.invoices
+add column if not exists sent_at timestamptz;
+
+alter table public.invoices
+add column if not exists paid_at timestamptz;
+
+alter table public.invoices
+add column if not exists canceled_at timestamptz;
+
+alter table public.invoices
+add column if not exists source_invoice_id uuid references public.invoices(id) on delete set null;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'invoices_status_check'
+  ) then
+    alter table public.invoices
+    add constraint invoices_status_check
+    check (status in ('draft', 'pending', 'sent', 'paid', 'overdue', 'canceled'));
+  end if;
+end $$;
+
+create table if not exists public.client_billing_profiles (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  client_id uuid not null references public.clients(id) on delete cascade,
+  recurrence_enabled boolean not null default false,
+  default_reference_day integer check (default_reference_day between 1 and 28),
+  default_due_day integer check (default_due_day between 1 and 31),
+  default_price_per_kwh numeric(12, 4),
+  default_discount_percent numeric(8, 4),
+  default_pix_key text,
+  default_receiver_name text,
+  last_invoice_id uuid references public.invoices(id) on delete set null,
+  next_reference_month text,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint client_billing_profiles_user_client_unique unique (user_id, client_id)
 );
 
 create table if not exists public.invoice_adjustments (
@@ -175,13 +223,17 @@ create index if not exists clients_user_id_idx on public.clients(user_id);
 create index if not exists clients_uc_code_idx on public.clients(uc_code);
 create index if not exists invoices_user_id_idx on public.invoices(user_id);
 create index if not exists invoices_client_id_idx on public.invoices(client_id);
+create index if not exists invoices_user_status_idx on public.invoices(user_id, status);
+create index if not exists invoices_due_date_idx on public.invoices(due_date);
 create index if not exists late_fees_client_status_idx on public.late_fees(client_id, status);
+create index if not exists client_billing_profiles_user_id_idx on public.client_billing_profiles(user_id);
 
 alter table public.clients enable row level security;
 alter table public.invoices enable row level security;
 alter table public.invoice_adjustments enable row level security;
 alter table public.late_fees enable row level security;
 alter table public.user_invoice_settings enable row level security;
+alter table public.client_billing_profiles enable row level security;
 
 drop policy if exists "Users can manage own clients" on public.clients;
 create policy "Users can manage own clients"
@@ -222,6 +274,12 @@ with check (auth.uid() = user_id);
 drop policy if exists "Users can manage own invoice settings" on public.user_invoice_settings;
 create policy "Users can manage own invoice settings"
 on public.user_invoice_settings for all
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can manage own billing profiles" on public.client_billing_profiles;
+create policy "Users can manage own billing profiles"
+on public.client_billing_profiles for all
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 

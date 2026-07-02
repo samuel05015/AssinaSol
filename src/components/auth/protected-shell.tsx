@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FileUp, Home, Loader2, LogOut, Settings2, UserPlus, UsersRound } from "lucide-react";
+import { FileUp, Home, Loader2, LogOut, ReceiptText, Settings2, UserPlus, UsersRound } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { href: "/inicio", label: "Inicio", icon: Home },
   { href: "/clientes", label: "Clientes", icon: UsersRound },
+  { href: "/faturas", label: "Faturas", icon: ReceiptText },
   { href: "/clientes/novo", label: "Adicionar cliente", icon: UserPlus },
   { href: "/carregar-fatura", label: "Carregar fatura", icon: FileUp },
   { href: "/configuracoes", label: "Configuracoes", icon: Settings2 },

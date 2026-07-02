@@ -89,6 +89,116 @@ async function getBrandSettings(supabase: ReturnType<typeof getSupabaseAdmin>, u
   };
 }
 
+async function nextInvoiceNumber(supabase: ReturnType<typeof getSupabaseAdmin>, userId: string, fallback?: string) {
+  if (fallback?.trim()) return fallback.trim();
+  if (!supabase) return `ASS-${new Date().getFullYear()}-${Date.now().toString().slice(-4)}`;
+
+  const year = new Date().getFullYear();
+  const from = `${year}-01-01T00:00:00.000Z`;
+  const to = `${year + 1}-01-01T00:00:00.000Z`;
+  const { count } = await supabase
+    .from("invoices")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("created_at", from)
+    .lt("created_at", to);
+
+  return `ASS-${year}-${String((count ?? 0) + 1).padStart(4, "0")}`;
+}
+
+async function saveInvoiceRecord(params: {
+  supabase: NonNullable<ReturnType<typeof getSupabaseAdmin>>;
+  userId: string;
+  input: ReturnType<typeof invoiceCalculationSchema.parse>;
+  calculation: ReturnType<typeof calculateInvoice>;
+  pdfUrl: string;
+}) {
+  const { supabase, userId, input, calculation, pdfUrl } = params;
+  const { data: invoice, error } = await supabase
+    .from("invoices")
+    .insert({
+      user_id: userId,
+      client_id: input.client.id || null,
+      invoice_number: calculation.invoiceNumber,
+      reference_month: input.referenceMonth,
+      due_date: input.dueDate,
+      total_consumption_kwh: input.totalConsumptionKwh ?? 0,
+      solar_consumption_kwh: input.solarConsumptionKwh,
+      accumulated_credit_kwh: input.accumulatedCreditKwh ?? 0,
+      price_per_kwh: input.pricePerKwh,
+      discount_percent: input.discountPercent,
+      discount_value: calculation.discountValue,
+      energy_subtotal: calculation.energySubtotal,
+      energy_total: calculation.energyTotal,
+      fio_b_value: input.fioBValue,
+      charge_fio_b: input.chargeFioB,
+      public_lighting_value: input.publicLightingValue,
+      charge_public_lighting: input.chargePublicLighting,
+      utility_bill_value: input.utilityBillValue,
+      charge_utility_bill: input.chargeUtilityBill,
+      tariff_flag: input.tariffFlag,
+      tariff_flag_value: calculation.selectedTariffValue,
+      estimated_utility_cost: calculation.estimatedUtilityCost,
+      estimated_savings: calculation.estimatedSavings,
+      total_extra_fees: calculation.totalExtraFees,
+      total_extra_discounts: calculation.totalExtraDiscounts,
+      total_late_fees: calculation.totalLateFees,
+      final_total: calculation.finalTotal,
+      pix_key: input.pixKey || null,
+      receiver_name: input.receiverName || null,
+      notes: input.notes || null,
+      pdf_url: pdfUrl,
+      status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  if (input.adjustments.length) {
+    const { error: adjustmentsError } = await supabase
+      .from("invoice_adjustments")
+      .insert(input.adjustments.map((item) => ({
+        invoice_id: invoice.id,
+        type: item.type,
+        name: item.name,
+        amount: item.amount,
+      })));
+    if (adjustmentsError) throw new Error(adjustmentsError.message);
+  }
+
+  const lateFeeIds = input.lateFees
+    .filter((fee) => fee.id && fee.status === "pending")
+    .map((fee) => fee.id as string);
+
+  if (lateFeeIds.length) {
+    await supabase
+      .from("late_fees")
+      .update({ status: "included" })
+      .eq("user_id", userId)
+      .in("id", lateFeeIds);
+  }
+
+  if (input.client.id) {
+    await supabase
+      .from("client_billing_profiles")
+      .upsert({
+        user_id: userId,
+        client_id: input.client.id,
+        recurrence_enabled: true,
+        default_due_day: Number(input.dueDate.slice(-2)) || null,
+        default_price_per_kwh: input.pricePerKwh,
+        default_discount_percent: input.discountPercent,
+        default_pix_key: input.pixKey || null,
+        default_receiver_name: input.receiverName || null,
+        last_invoice_id: invoice.id,
+        next_reference_month: "",
+      }, { onConflict: "user_id,client_id" });
+  }
+
+  return invoice.id as string;
+}
+
 export async function POST(request: Request) {
   const parsed = invoiceCalculationSchema.safeParse(await request.json());
   if (!parsed.success) {
@@ -96,11 +206,13 @@ export async function POST(request: Request) {
   }
 
   const input = parsed.data;
-  const calculation = calculateInvoice(input);
   const supabase = getSupabaseAdmin();
   const userId = await getRequestUserId(request);
+  const invoiceNumber = await nextInvoiceNumber(supabase, userId, input.invoiceNumber);
+  const inputWithNumber = { ...input, invoiceNumber };
+  const calculation = calculateInvoice(inputWithNumber);
   const brandSettings = await getBrandSettings(supabase, userId);
-  const pdfBytes = await buildInvoicePdf(input, calculation, brandSettings);
+  const pdfBytes = await buildInvoicePdf(inputWithNumber, calculation, brandSettings);
 
   if (!supabase) {
     return NextResponse.json({
@@ -123,5 +235,13 @@ export async function POST(request: Request) {
   }
 
   const { data } = supabase.storage.from("solar-invoices").getPublicUrl(filePath);
-  return NextResponse.json({ url: data.publicUrl, calculation });
+  const invoiceId = await saveInvoiceRecord({
+    supabase,
+    userId,
+    input: inputWithNumber,
+    calculation,
+    pdfUrl: data.publicUrl,
+  });
+
+  return NextResponse.json({ url: data.publicUrl, calculation, invoiceId });
 }

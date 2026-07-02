@@ -115,6 +115,7 @@ export const invoiceCalculationSchema = z.object({
   notes: optionalString,
   adjustments: z.array(invoiceAdjustmentSchema),
   lateFees: z.array(lateFeeRecordSchema),
+  sourceInvoiceId: optionalString,
 }).superRefine((value, ctx) => {
   if (value.pixKey && !value.receiverName) {
     ctx.addIssue({
@@ -123,6 +124,10 @@ export const invoiceCalculationSchema = z.object({
       message: "Informe o recebedor quando houver PIX",
     });
   }
+});
+
+export const invoiceStatusSchema = z.object({
+  status: z.enum(["draft", "pending", "sent", "paid", "overdue", "canceled"]),
 });
 
 export type ClientSchema = z.infer<typeof clientSchema>;

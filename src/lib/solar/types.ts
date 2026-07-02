@@ -3,6 +3,7 @@ export type AdjustmentType = "fee" | "discount";
 export type InterestType = "monthly" | "daily";
 export type LateFeeStatus = "pending" | "included" | "canceled";
 export type ProposalLayout = "modern" | "classic" | "compact";
+export type InvoiceStatus = "draft" | "pending" | "sent" | "paid" | "overdue" | "canceled";
 
 export type ClientData = {
   id?: string;
@@ -84,6 +85,7 @@ export type InvoiceCalculationInput = {
   notes?: string;
   adjustments: InvoiceAdjustment[];
   lateFees: LateFeeRecord[];
+  sourceInvoiceId?: string;
 };
 
 export type InvoiceCalculationResult = {
@@ -118,4 +120,45 @@ export type CompanySettings = {
 export type PdfBrandSettings = CompanySettings & {
   logoBytes?: Uint8Array;
   logoContentType?: string;
+};
+
+export type InvoiceListItem = {
+  id: string;
+  clientId?: string;
+  clientName: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  clientUcCode?: string;
+  invoiceNumber: string;
+  referenceMonth: string;
+  dueDate: string;
+  status: InvoiceStatus;
+  finalTotal: number;
+  energyTotal: number;
+  solarConsumptionKwh: number;
+  pricePerKwh: number;
+  discountPercent: number;
+  pixKey?: string;
+  receiverName?: string;
+  pdfUrl?: string;
+  sentAt?: string;
+  paidAt?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type InvoiceDraft = Partial<InvoiceCalculationInput> & {
+  client: ClientData;
+  sourceInvoiceId?: string;
+};
+
+export type DashboardStats = {
+  clientsCount: number;
+  invoicesCount: number;
+  monthRevenue: number;
+  pendingTotal: number;
+  overdueTotal: number;
+  paidTotal: number;
+  estimatedSavingsTotal: number;
+  recentInvoices: InvoiceListItem[];
 };

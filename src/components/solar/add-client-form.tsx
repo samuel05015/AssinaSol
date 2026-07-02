@@ -18,6 +18,7 @@ import { maskBrazilianPhone, maskCpfCnpj } from "@/lib/solar/format";
 import { clientSchema, type ClientSchema } from "@/lib/solar/schemas";
 
 export const pendingClientStorageKey = "solar-faturas-pending-client";
+export const pendingInvoiceDraftStorageKey = "solar-faturas-pending-invoice-draft";
 
 const clientResolver = zodResolver(clientSchema) as Resolver<ClientSchema>;
 

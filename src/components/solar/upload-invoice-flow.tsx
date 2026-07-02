@@ -33,12 +33,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/u
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/components/auth/auth-provider";
-import { pendingClientStorageKey } from "@/components/solar/add-client-form";
+import { pendingClientStorageKey, pendingInvoiceDraftStorageKey } from "@/components/solar/add-client-form";
 import { appBrand } from "@/lib/brand";
 import { calculateInvoice, calculateLateFee } from "@/lib/solar/calculate";
 import { formatCurrency, formatKwh, maskBrazilianPhone, maskCpfCnpj } from "@/lib/solar/format";
 import { invoiceCalculationSchema, type InvoiceCalculationSchema } from "@/lib/solar/schemas";
-import type { ClientData, ExtractedInvoiceData, InvoiceAdjustment, LateFeeRecord } from "@/lib/solar/types";
+import type { ClientData, ExtractedInvoiceData, InvoiceAdjustment, InvoiceDraft, LateFeeRecord } from "@/lib/solar/types";
 import { cn } from "@/lib/utils";
 
 const preferencesKey = "solar-faturas-preferences";
@@ -343,6 +343,48 @@ export function UploadInvoiceFlow() {
     }
 
     localStorage.removeItem(pendingClientStorageKey);
+  }, [setValue]);
+
+  useEffect(() => {
+    const raw = localStorage.getItem(pendingInvoiceDraftStorageKey);
+    if (!raw) return;
+
+    try {
+      const draft = JSON.parse(raw) as InvoiceDraft;
+      if (draft.sourceInvoiceId) setValue("sourceInvoiceId", draft.sourceInvoiceId);
+      if (draft.client?.id) setValue("client.id", draft.client.id);
+      if (draft.client?.ucCode) setValue("client.ucCode", draft.client.ucCode, { shouldValidate: true });
+      if (draft.client?.name) setValue("client.name", draft.client.name, { shouldValidate: true });
+      if (draft.client?.document) setValue("client.document", draft.client.document, { shouldValidate: true });
+      if (draft.client?.email) setValue("client.email", draft.client.email);
+      if (draft.client?.phone) setValue("client.phone", draft.client.phone);
+      if (draft.client?.address) setValue("client.address", draft.client.address);
+      if (draft.totalConsumptionKwh !== undefined) setValue("totalConsumptionKwh", draft.totalConsumptionKwh);
+      if (draft.solarConsumptionKwh !== undefined) setValue("solarConsumptionKwh", draft.solarConsumptionKwh, { shouldValidate: true });
+      if (draft.accumulatedCreditKwh !== undefined) setValue("accumulatedCreditKwh", draft.accumulatedCreditKwh);
+      if (draft.pricePerKwh !== undefined) setValue("pricePerKwh", draft.pricePerKwh, { shouldValidate: true });
+      if (draft.discountPercent !== undefined) setValue("discountPercent", draft.discountPercent);
+      if (draft.fioBValue !== undefined) setValue("fioBValue", draft.fioBValue);
+      if (draft.chargeFioB !== undefined) setValue("chargeFioB", draft.chargeFioB);
+      if (draft.publicLightingValue !== undefined) setValue("publicLightingValue", draft.publicLightingValue);
+      if (draft.chargePublicLighting !== undefined) setValue("chargePublicLighting", draft.chargePublicLighting);
+      if (draft.utilityBillValue !== undefined) setValue("utilityBillValue", draft.utilityBillValue);
+      if (draft.chargeUtilityBill !== undefined) setValue("chargeUtilityBill", draft.chargeUtilityBill);
+      if (draft.tariffFlag) setValue("tariffFlag", draft.tariffFlag);
+      if (draft.tariffValues) setValue("tariffValues", draft.tariffValues);
+      if (draft.pixKey) setValue("pixKey", draft.pixKey);
+      if (draft.receiverName) setValue("receiverName", draft.receiverName);
+      if (draft.notes) setValue("notes", draft.notes);
+      if (draft.adjustments) setValue("adjustments", draft.adjustments);
+      window.setTimeout(() => {
+        setClientNotice("Fatura recorrente carregada. Informe mes de referencia, vencimento e revise o consumo antes de gerar.");
+      }, 0);
+    } catch {
+      localStorage.removeItem(pendingInvoiceDraftStorageKey);
+      return;
+    }
+
+    localStorage.removeItem(pendingInvoiceDraftStorageKey);
   }, [setValue]);
 
   function saveRememberedSettings() {
