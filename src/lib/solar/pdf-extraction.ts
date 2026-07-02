@@ -210,8 +210,19 @@ function ensurePdfServerPolyfills() {
   target.Path2D ??= ServerPath2D;
 }
 
+async function ensurePdfWorkerLoaded() {
+  const target = globalThis as typeof globalThis & {
+    pdfjsWorker?: unknown;
+  };
+
+  if (target.pdfjsWorker) return;
+
+  target.pdfjsWorker = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+}
+
 export async function extractInvoiceFromPdf(file: File, password?: string): Promise<ExtractedInvoiceData> {
   ensurePdfServerPolyfills();
+  await ensurePdfWorkerLoaded();
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
   const bytes = new Uint8Array(await file.arrayBuffer());
