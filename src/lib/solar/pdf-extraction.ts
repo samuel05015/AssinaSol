@@ -120,25 +120,98 @@ function detectTariffFlag(text: string): TariffFlag | undefined {
   return undefined;
 }
 
-async function ensurePdfServerPolyfills() {
-  if (
-    typeof globalThis.DOMMatrix !== "undefined"
-    && typeof globalThis.ImageData !== "undefined"
-    && typeof globalThis.Path2D !== "undefined"
-  ) {
-    return;
+class ServerDOMMatrix {
+  a = 1;
+  b = 0;
+  c = 0;
+  d = 1;
+  e = 0;
+  f = 0;
+
+  constructor(init?: string | number[]) {
+    if (Array.isArray(init)) {
+      if (init.length >= 6) {
+        [this.a, this.b, this.c, this.d, this.e, this.f] = init;
+      }
+      if (init.length >= 16) {
+        this.a = init[0] ?? 1;
+        this.b = init[1] ?? 0;
+        this.c = init[4] ?? 0;
+        this.d = init[5] ?? 1;
+        this.e = init[12] ?? 0;
+        this.f = init[13] ?? 0;
+      }
+    }
   }
 
-  const canvas = await import("@napi-rs/canvas");
+  translate() {
+    return this;
+  }
+
+  scale() {
+    return this;
+  }
+
+  multiply() {
+    return this;
+  }
+
+  inverse() {
+    return this;
+  }
+
+  transformPoint(point?: { x?: number; y?: number }) {
+    return {
+      x: point?.x ?? 0,
+      y: point?.y ?? 0,
+      z: 0,
+      w: 1,
+    };
+  }
+}
+
+class ServerImageData {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+  colorSpace = "srgb";
+
+  constructor(dataOrWidth: Uint8ClampedArray | number, widthOrHeight: number, height?: number) {
+    if (typeof dataOrWidth === "number") {
+      this.width = dataOrWidth;
+      this.height = widthOrHeight;
+      this.data = new Uint8ClampedArray(this.width * this.height * 4);
+    } else {
+      this.data = dataOrWidth;
+      this.width = widthOrHeight;
+      this.height = height ?? Math.floor(dataOrWidth.length / widthOrHeight / 4);
+    }
+  }
+}
+
+class ServerPath2D {
+  addPath() { return undefined; }
+  closePath() { return undefined; }
+  moveTo() { return undefined; }
+  lineTo() { return undefined; }
+  bezierCurveTo() { return undefined; }
+  quadraticCurveTo() { return undefined; }
+  rect() { return undefined; }
+  roundRect() { return undefined; }
+  arc() { return undefined; }
+  ellipse() { return undefined; }
+}
+
+function ensurePdfServerPolyfills() {
   const target = globalThis as Record<string, unknown>;
 
-  target.DOMMatrix ??= canvas.DOMMatrix;
-  target.ImageData ??= canvas.ImageData;
-  target.Path2D ??= canvas.Path2D;
+  target.DOMMatrix ??= ServerDOMMatrix;
+  target.ImageData ??= ServerImageData;
+  target.Path2D ??= ServerPath2D;
 }
 
 export async function extractInvoiceFromPdf(file: File, password?: string): Promise<ExtractedInvoiceData> {
-  await ensurePdfServerPolyfills();
+  ensurePdfServerPolyfills();
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
 
   const bytes = new Uint8Array(await file.arrayBuffer());
