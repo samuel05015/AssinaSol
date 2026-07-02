@@ -1,17 +1,50 @@
 import { onlyDigits } from "./format";
 
 function emv(id: string, value: string) {
-  return `${id}${String(value.length).padStart(2, "0")}${value}`;
+  return `${id}${String(new TextEncoder().encode(value).length).padStart(2, "0")}${value}`;
 }
 
 function sanitizePixText(value: string, maxLength: number) {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^A-Za-z0-9 $%*+\-./:]/g, "")
+    .replace(/[^A-Za-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLength)
     .toUpperCase();
+}
+
+function normalizePixKey(value: string) {
+  const trimmed = value.trim();
+  const digits = onlyDigits(trimmed);
+
+  if (!trimmed) return "";
+  if (trimmed.includes("@")) return trimmed.toLowerCase();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+  if (trimmed.startsWith("+") && digits.length >= 12 && digits.length <= 13) {
+    return `+${digits}`;
+  }
+  if ((trimmed.includes("(") || trimmed.toLowerCase().includes("tel")) && digits.length >= 10 && digits.length <= 11) {
+    return `+55${digits}`;
+  }
+  if (digits.startsWith("55") && digits.length >= 12 && digits.length <= 13) {
+    return `+${digits}`;
+  }
+  if (digits.length === 11 || digits.length === 14) return digits;
+
+  return trimmed;
+}
+
+function sanitizeTxid(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9]/g, "")
+    .slice(0, 25)
+    .toUpperCase() || "ASSINASOL";
 }
 
 function crc16(payload: string) {
@@ -35,7 +68,7 @@ export function buildPixCopyPaste(input: {
   invoiceNumber: string;
   city?: string;
 }) {
-  const pixKey = input.pixKey?.trim();
+  const pixKey = normalizePixKey(input.pixKey ?? "");
   const receiverName = input.receiverName?.trim();
   if (!pixKey || !receiverName || input.amount <= 0) return "";
 
@@ -43,16 +76,17 @@ export function buildPixCopyPaste(input: {
     emv("00", "br.gov.bcb.pix"),
     emv("01", pixKey),
   ].join("");
-  const txid = sanitizePixText(input.invoiceNumber || "***", 25) || "***";
+  const txid = sanitizeTxid(input.invoiceNumber);
+  const amount = Math.max(0, input.amount).toFixed(2);
   const payload = [
     emv("00", "01"),
     emv("26", merchantAccount),
     emv("52", "0000"),
     emv("53", "986"),
-    emv("54", input.amount.toFixed(2)),
+    emv("54", amount),
     emv("58", "BR"),
     emv("59", sanitizePixText(receiverName, 25) || "RECEBEDOR"),
-    emv("60", sanitizePixText(input.city || "BRASIL", 15) || "BRASIL"),
+    emv("60", sanitizePixText(input.city || "SAO PAULO", 15) || "SAO PAULO"),
     emv("62", emv("05", txid)),
   ].join("");
   const withCrcId = `${payload}6304`;
