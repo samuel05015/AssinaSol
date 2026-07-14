@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CreditCard, FileUp, Home, Loader2, LockKeyhole, LogOut, ReceiptText, Settings2, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
+import { CreditCard, FileUp, Home, Loader2, LockKeyhole, LogOut, Menu, ReceiptText, Settings2, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAuth } from "@/components/auth/auth-provider";
 import { appBrand } from "@/lib/brand";
 import { isPlatformAdmin } from "@/lib/admin";
@@ -41,6 +42,7 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [companyName, setCompanyName] = useState(appBrand.name);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { billing, loading: billingLoading, startCheckout } = useBilling({ autoLoad: Boolean(user || !configured) });
 
   useEffect(() => {
@@ -132,27 +134,27 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef3f8_100%)]">
       <header className="border-b bg-white/90 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={appBrand.logoPath} alt={appBrand.name} className="h-14 w-auto max-w-48 object-contain" />
-            <div>
-              <p className="text-sm font-semibold text-slate-950">{companyName}</p>
-              <p className="text-xs text-muted-foreground">{user?.email ?? "Modo preview sem Supabase"}</p>
+            <img src={appBrand.logoPath} alt={appBrand.name} className="h-11 w-auto max-w-32 shrink-0 object-contain sm:h-14 sm:max-w-48" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-slate-950">{companyName}</p>
+              <p className="truncate text-xs text-muted-foreground">{user?.email ?? "Modo preview sem Supabase"}</p>
             </div>
-            {!configured ? <Badge variant="outline">Preview local</Badge> : null}
+            {!configured ? <Badge variant="outline" className="hidden xl:inline-flex">Preview local</Badge> : null}
             {billing.subscription ? (
-              <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
+              <Badge className="hidden bg-orange-100 text-orange-800 hover:bg-orange-100 xl:inline-flex">
                 Plano {planCatalog[billing.subscription.plan].name}{billing.subscription.provider === "complimentary" ? " · Cortesia" : ""}
               </Badge>
             ) : (
-              <Link href="/planos">
+              <Link href="/planos" className="hidden xl:inline-flex">
                 <Badge variant="outline">Escolher plano</Badge>
               </Link>
             )}
           </div>
 
-          <nav className="flex flex-wrap items-center gap-2">
+          <nav className="hidden min-w-0 flex-1 flex-wrap items-center justify-end gap-1 lg:flex xl:gap-2">
             {navItems.filter((item) => (!item.access || billing.access[item.access]) && (!item.adminOnly || isPlatformAdmin(user?.email))).map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href;
@@ -182,6 +184,65 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
               Sair
             </Button>
           </nav>
+
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger
+              render={
+                <Button type="button" variant="outline" size="icon" className="shrink-0 lg:hidden" aria-label="Abrir menu" />
+              }
+            >
+              <Menu className="size-5" />
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[88vw] max-w-sm overflow-y-auto">
+              <SheetHeader className="border-b pr-12">
+                <SheetTitle>{companyName}</SheetTitle>
+                <SheetDescription className="break-all">{user?.email ?? "Modo preview sem Supabase"}</SheetDescription>
+              </SheetHeader>
+              <div className="px-4">
+                {billing.subscription ? (
+                  <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
+                    Plano {planCatalog[billing.subscription.plan].name}{billing.subscription.provider === "complimentary" ? " - Cortesia" : ""}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">Nenhum plano ativo</Badge>
+                )}
+              </div>
+              <nav className="flex flex-col gap-1 px-4 pb-4">
+                {navItems.filter((item) => (!item.access || billing.access[item.access]) && (!item.adminOnly || isPlatformAdmin(user?.email))).map((item) => {
+                  const Icon = item.icon;
+                  const active = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={cn(
+                        buttonVariants({ variant: active ? "default" : "ghost" }),
+                        "w-full justify-start",
+                        active && "bg-slate-950 text-white hover:bg-slate-900",
+                      )}
+                    >
+                      <Icon className="size-4" />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 w-full justify-start"
+                  onClick={async () => {
+                    setMobileMenuOpen(false);
+                    await signOut();
+                    router.replace("/entrar");
+                  }}
+                >
+                  <LogOut className="size-4" />
+                  Sair
+                </Button>
+              </nav>
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
 

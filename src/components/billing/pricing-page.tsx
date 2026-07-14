@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, LockKeyhole, Palette, ReceiptText, Sparkles, UsersRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, CircleAlert, CreditCard, Loader2, LockKeyhole, Palette, ReceiptText, Sparkles, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -16,6 +16,22 @@ import { cn } from "@/lib/utils";
 function formatPrice(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
+
+function formatDate(value?: string | null) {
+  if (!value) return "Nao informado";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Nao informado";
+  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo" }).format(date);
+}
+
+const statusLabels = {
+  none: "Sem assinatura",
+  trialing: "Teste gratis ativo",
+  active: "Assinatura ativa",
+  past_due: "Pagamento pendente",
+  canceled: "Assinatura cancelada",
+  expired: "Teste encerrado",
+} as const;
 
 const commercialFeatures = [
   { title: "Gerar proposta", icon: ReceiptText },
@@ -50,6 +66,15 @@ export function PricingPage() {
     }
   }
 
+  async function manageSubscription() {
+    try {
+      const url = await openBillingPortal();
+      window.location.assign(url);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel abrir o gerenciamento da assinatura.");
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef3f8_100%)] text-slate-950">
       <header className="border-b bg-white/90 backdrop-blur">
@@ -60,13 +85,14 @@ export function PricingPage() {
           </div>
           <nav className="flex items-center gap-2">
             {user ? (
-              <Link href="/inicio" className={cn(buttonVariants({ variant: "outline" }), "hidden sm:inline-flex")}>
-                Abrir sistema
+              <Link href="/inicio" className={cn(buttonVariants(), "bg-slate-950 text-white hover:bg-slate-900")}>
+                Voltar ao sistema
               </Link>
-            ) : null}
-            <Link href="/entrar" className={cn(buttonVariants(), "bg-slate-950 text-white hover:bg-slate-900")}>
-              Entrar
-            </Link>
+            ) : (
+              <Link href="/entrar" className={cn(buttonVariants(), "bg-slate-950 text-white hover:bg-slate-900")}>
+                Entrar
+              </Link>
+            )}
           </nav>
         </div>
       </header>
@@ -109,6 +135,76 @@ export function PricingPage() {
       </section>
 
       <section id="planos" className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
+        {user && billing.subscription ? (
+          <section className="mb-8 rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6" aria-labelledby="assinatura-atual">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 id="assinatura-atual" className="text-xl font-semibold">Sua assinatura</h2>
+                  <Badge className={cn(
+                    billing.status === "active" || billing.status === "trialing"
+                      ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100"
+                      : billing.status === "past_due"
+                        ? "bg-amber-100 text-amber-800 hover:bg-amber-100"
+                        : "bg-slate-100 text-slate-700 hover:bg-slate-100",
+                  )}>
+                    {statusLabels[billing.status]}
+                  </Badge>
+                </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  Plano {planCatalog[billing.subscription.plan].name} por {formatPrice(planCatalog[billing.subscription.plan].price)}/mes
+                  {billing.subscription.provider === "complimentary" ? " - acesso cortesia" : ""}.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[430px]">
+                <div className="flex min-w-0 items-center gap-3 rounded-lg bg-slate-50 p-3">
+                  <CalendarDays className="size-5 shrink-0 text-slate-600" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500">
+                      {billing.status === "trialing" ? "Fim do teste gratis" : "Acesso vigente ate"}
+                    </p>
+                    <p className="truncate text-sm font-semibold">
+                      {formatDate(billing.status === "trialing" ? billing.subscription.trialEndsAt : billing.subscription.currentPeriodEndsAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex min-w-0 items-center gap-3 rounded-lg bg-slate-50 p-3">
+                  {billing.subscription.paymentMethodCollected ? (
+                    <CreditCard className="size-5 shrink-0 text-emerald-700" />
+                  ) : (
+                    <CircleAlert className="size-5 shrink-0 text-amber-700" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-500">Pagamento</p>
+                    <p className="truncate text-sm font-semibold">
+                      {billing.subscription.paymentMethodCollected ? "Metodo cadastrado" : "Metodo nao cadastrado"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {billing.subscription.provider === "stripe" && billing.subscription.providerCustomerId ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full lg:w-auto"
+                  disabled={updating}
+                  onClick={manageSubscription}
+                >
+                  {updating ? <Loader2 className="size-4 animate-spin" /> : <CreditCard className="size-4" />}
+                  Gerenciar ou cancelar
+                </Button>
+              ) : null}
+            </div>
+            {billing.subscription.provider === "stripe" ? (
+              <p className="mt-4 text-xs leading-5 text-slate-500">
+                O gerenciamento abre o Portal seguro do Stripe para atualizar o cartao, consultar cobrancas ou cancelar a assinatura.
+              </p>
+            ) : null}
+          </section>
+        ) : null}
+
         <div className="mb-6">
           <h2 className="text-2xl font-semibold tracking-tight">Planos do {appBrand.name}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -119,7 +215,7 @@ export function PricingPage() {
 
         <div className="grid gap-4 lg:grid-cols-3">
           {Object.values(planCatalog).map((plan) => {
-            const selected = billing.subscription?.plan === plan.id && billing.status !== "none";
+            const selected = billing.subscription?.plan === plan.id && ["trialing", "active", "past_due"].includes(billing.status);
             const complimentaryAccess = billing.subscription?.provider === "complimentary";
             return (
               <Card key={plan.id} className={cn(

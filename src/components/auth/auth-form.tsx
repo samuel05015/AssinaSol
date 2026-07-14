@@ -45,7 +45,7 @@ export function AuthForm() {
   return (
     <main data-auth-layout="assinasol-product-login" className="min-h-screen bg-slate-100 p-3 text-slate-950 sm:p-6">
       <div className="mx-auto grid min-h-[calc(100vh-1.5rem)] max-w-7xl overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-200 sm:min-h-[calc(100vh-3rem)] lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="flex flex-col justify-between bg-slate-950 p-5 text-white sm:p-8 lg:p-10">
+        <section className="order-2 flex flex-col justify-between bg-slate-950 p-5 text-white sm:p-8 lg:order-1 lg:p-10">
           <div>
             <div className="flex items-center justify-between gap-4">
               <div className="flex h-16 w-48 items-center justify-center rounded-lg bg-white p-2 shadow-sm ring-1 ring-white/15 sm:h-20 sm:w-64 sm:p-3">
@@ -88,7 +88,7 @@ export function AuthForm() {
           </div>
         </section>
 
-        <section className="flex items-center justify-center bg-slate-50 px-4 py-8 sm:px-8 lg:px-10">
+        <section className="order-1 flex items-center justify-center bg-slate-50 px-4 py-8 sm:px-8 lg:order-2 lg:px-10">
           <Card className="w-full max-w-md rounded-lg border-slate-200 bg-white shadow-sm">
             <CardHeader className="space-y-5">
               <div className="inline-flex w-full rounded-lg bg-slate-100 p-1">
