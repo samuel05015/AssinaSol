@@ -18,6 +18,7 @@ export type AdminPlatformCustomer = {
   currentPeriodEndsAt: string | null;
   paymentMethodCollected: boolean;
   providerCustomerId: string | null;
+  complimentaryAccess: boolean;
   clientsCount: number;
   invoicesCount: number;
   generatedTotal: number;

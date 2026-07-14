@@ -143,7 +143,7 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
             {!configured ? <Badge variant="outline">Preview local</Badge> : null}
             {billing.subscription ? (
               <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
-                Plano {planCatalog[billing.subscription.plan].name}
+                Plano {planCatalog[billing.subscription.plan].name}{billing.subscription.provider === "complimentary" ? " · Cortesia" : ""}
               </Badge>
             ) : (
               <Link href="/planos">

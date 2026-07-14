@@ -75,7 +75,8 @@ export async function GET(request: Request) {
 
     const customers: AdminPlatformCustomer[] = usersResult.data.users.map((authUser) => {
       const subscription = subscriptions.get(authUser.id);
-      const plan = isPlanId(subscription?.plan) ? subscription.plan : null;
+      const complimentaryAccess = authUser.id === process.env.COMPLIMENTARY_USER_ID;
+      const plan = complimentaryAccess ? "premium" : isPlanId(subscription?.plan) ? subscription.plan : null;
       const invoices = invoiceTotals.get(authUser.id) ?? { count: 0, total: 0 };
       return {
         id: authUser.id,
@@ -84,11 +85,12 @@ export async function GET(request: Request) {
         lastSignInAt: authUser.last_sign_in_at ?? null,
         emailConfirmedAt: authUser.email_confirmed_at ?? null,
         plan,
-        subscriptionStatus: effectiveSubscriptionStatus(subscription),
+        subscriptionStatus: complimentaryAccess ? "active" : effectiveSubscriptionStatus(subscription),
         trialEndsAt: subscription?.trial_ends_at ?? null,
         currentPeriodEndsAt: subscription?.current_period_ends_at ?? null,
-        paymentMethodCollected: Boolean(subscription?.payment_method_collected),
+        paymentMethodCollected: complimentaryAccess || Boolean(subscription?.payment_method_collected),
         providerCustomerId: subscription?.provider_customer_id ?? null,
+        complimentaryAccess,
         clientsCount: clientCounts.get(authUser.id) ?? 0,
         invoicesCount: invoices.count,
         generatedTotal: invoices.total,
@@ -99,7 +101,7 @@ export async function GET(request: Request) {
     const trials = customers.filter((customer) => customer.subscriptionStatus === "trialing").length;
     const attentionNeeded = customers.filter((customer) => ["past_due", "expired"].includes(customer.subscriptionStatus)).length;
     const projectedMrr = customers.reduce((total, customer) => {
-      if (!customer.plan || !["active", "trialing"].includes(customer.subscriptionStatus)) return total;
+      if (customer.complimentaryAccess || !customer.plan || !["active", "trialing"].includes(customer.subscriptionStatus)) return total;
       return total + planCatalog[customer.plan].price;
     }, 0);
 

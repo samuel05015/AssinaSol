@@ -38,6 +38,7 @@ STRIPE_WEBHOOK_SECRET=
 STRIPE_PRICE_STARTER=
 STRIPE_PRICE_PRO=
 STRIPE_PRICE_PREMIUM=
+COMPLIMENTARY_USER_ID=
 ```
 
 Sem Supabase configurado, o app continua funcionando para preview: a autenticacao fica liberada localmente, clientes retornam em modo local e PDFs sao devolvidos como data URL.

@@ -152,7 +152,11 @@ export function AdminDashboard() {
                         {customer.emailConfirmedAt ? "E-mail confirmado" : "Confirmacao pendente"}
                       </Badge>
                     </TableCell>
-                    <TableCell>{customer.plan ? <Badge variant="outline">{planCatalog[customer.plan].name}</Badge> : <span className="text-muted-foreground">Sem plano</span>}</TableCell>
+                    <TableCell>
+                      {customer.complimentaryAccess ? <Badge className="bg-violet-100 text-violet-800 hover:bg-violet-100">Completo · Cortesia</Badge>
+                        : customer.plan ? <Badge variant="outline">{planCatalog[customer.plan].name}</Badge>
+                          : <span className="text-muted-foreground">Sem plano</span>}
+                    </TableCell>
                     <TableCell><Badge variant="outline" className={statusClass(customer.subscriptionStatus)}>{statusLabels[customer.subscriptionStatus]}</Badge></TableCell>
                     <TableCell>
                       <div className="text-xs text-muted-foreground">Teste: {formatDate(customer.trialEndsAt)}</div>

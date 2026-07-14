@@ -120,6 +120,7 @@ export function PricingPage() {
         <div className="grid gap-4 lg:grid-cols-3">
           {Object.values(planCatalog).map((plan) => {
             const selected = billing.subscription?.plan === plan.id && billing.status !== "none";
+            const complimentaryAccess = billing.subscription?.provider === "complimentary";
             return (
               <Card key={plan.id} className={cn(
                 "relative rounded-lg border bg-white shadow-sm",
@@ -149,11 +150,11 @@ export function PricingPage() {
                   <Button
                     type="button"
                     className={cn("h-11 w-full", plan.popular ? "bg-orange-600 text-white hover:bg-orange-700" : "bg-slate-950 text-white hover:bg-slate-900")}
-                    disabled={updating}
+                    disabled={updating || complimentaryAccess}
                     onClick={() => choosePlan(plan.id)}
                   >
                     {updating ? <Loader2 className="size-4 animate-spin" /> : null}
-                    {selected ? "Gerenciar assinatura" : plan.cta}
+                    {complimentaryAccess ? selected ? "Acesso cortesia ativo" : "Incluso no acesso completo" : selected ? "Gerenciar assinatura" : plan.cta}
                   </Button>
                 </CardContent>
               </Card>

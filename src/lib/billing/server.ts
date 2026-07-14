@@ -32,6 +32,24 @@ export type BillingState = {
   status: ReturnType<typeof getSubscriptionStatus>;
 };
 
+function complimentaryBillingState(userId: string): BillingState | null {
+  if (!process.env.COMPLIMENTARY_USER_ID || userId !== process.env.COMPLIMENTARY_USER_ID) return null;
+
+  const now = new Date().toISOString();
+  const subscription: BillingSubscription = {
+    id: "complimentary-access",
+    userId,
+    plan: "premium",
+    status: "active",
+    trialStartedAt: now,
+    trialEndsAt: now,
+    currentPeriodEndsAt: null,
+    provider: "complimentary",
+    paymentMethodCollected: true,
+  };
+  return { subscription, access: planCatalog.premium.access, status: "active" };
+}
+
 function toSubscription(row: SubscriptionRow): BillingSubscription | null {
   if (!isPlanId(row.plan)) return null;
   return {
@@ -55,6 +73,9 @@ export async function getBillingState(
   supabase: SupabaseClient | null,
   userId: string,
 ): Promise<BillingState> {
+  const complimentary = complimentaryBillingState(userId);
+  if (complimentary) return complimentary;
+
   if (!supabase) {
     const now = new Date();
     const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);

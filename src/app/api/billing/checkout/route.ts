@@ -21,6 +21,9 @@ export async function POST(request: Request) {
 
   try {
     const billing = await getBillingState(supabase, user.id);
+    if (billing.subscription?.provider === "complimentary") {
+      return NextResponse.json({ error: "Sua conta ja possui acesso Completo por cortesia e nao precisa assinar um plano." }, { status: 409 });
+    }
     if (
       billing.subscription?.provider === "stripe"
       && ["trialing", "active", "past_due"].includes(billing.status)
