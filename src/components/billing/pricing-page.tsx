@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileText, Loader2, LockKeyhole, Palette, ReceiptText, ShieldCheck, Sparkles, UsersRound, Zap } from "lucide-react";
+import { CheckCircle2, Loader2, LockKeyhole, Palette, ReceiptText, Sparkles, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -16,12 +16,6 @@ import { cn } from "@/lib/utils";
 function formatPrice(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
-
-const highlights = [
-  { title: "PDF profissional", description: "Proposta com resumo, calculo, PIX e comparativo.", icon: FileText },
-  { title: "Calculo guiado", description: "Energia, desconto, taxas, bandeira, multa e total.", icon: Zap },
-  { title: "Pronto para vender", description: "Planos, teste gratis e travas por recurso.", icon: ShieldCheck },
-];
 
 const commercialFeatures = [
   { title: "Gerar proposta", icon: ReceiptText },
@@ -77,7 +71,7 @@ export function PricingPage() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_420px] lg:px-8 lg:py-14">
+      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 lg:py-14">
         <div className="flex flex-col justify-center">
           <Badge className="mb-4 w-fit bg-orange-500 text-white hover:bg-orange-500">
             Teste gratis de {trialDays} dias
@@ -112,26 +106,6 @@ export function PricingPage() {
           </div>
         </div>
 
-        <Card className="rounded-lg border-0 bg-slate-950 text-white shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-2xl">Fluxo comercial pronto</CardTitle>
-            <CardDescription className="text-slate-300">
-              Escolha um plano, cadastre o cartao no Stripe e libere o teste automaticamente.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            {highlights.map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.title} className="rounded-lg border border-white/10 bg-white/5 p-4">
-                  <Icon className="mb-3 size-5 text-orange-300" />
-                  <p className="font-semibold">{item.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-300">{item.description}</p>
-                </div>
-              );
-            })}
-          </CardContent>
-        </Card>
       </section>
 
       <section id="planos" className="mx-auto max-w-7xl px-4 pb-12 sm:px-6 lg:px-8">
