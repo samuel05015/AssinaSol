@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CreditCard, FileUp, Home, Loader2, LockKeyhole, LogOut, ReceiptText, Settings2, UserPlus, UsersRound } from "lucide-react";
+import { CreditCard, FileUp, Home, Loader2, LockKeyhole, LogOut, ReceiptText, Settings2, ShieldCheck, UserPlus, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/components/auth/auth-provider";
 import { appBrand } from "@/lib/brand";
+import { isPlatformAdmin } from "@/lib/admin";
 import { planCatalog, type PlanAccess } from "@/lib/billing/plans";
 import { pendingPlanStorageKey, useBilling } from "@/hooks/use-billing";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ const navItems = [
   { href: "/carregar-fatura", label: "Carregar fatura", icon: FileUp, access: "canGenerate" as keyof PlanAccess },
   { href: "/configuracoes", label: "Configuracoes", icon: Settings2, access: "canCustomizeProposal" as keyof PlanAccess },
   { href: "/planos", label: "Planos", icon: CreditCard },
+  { href: "/admin", label: "Administrador", icon: ShieldCheck, adminOnly: true },
 ];
 
 function requiredAccessForPath(pathname: string): keyof PlanAccess | null {
@@ -124,7 +126,8 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
   }
 
   const requiredAccess = requiredAccessForPath(pathname);
-  const accessDenied = Boolean(requiredAccess && !billing.access[requiredAccess]);
+  const adminAccessDenied = pathname.startsWith("/admin") && !isPlatformAdmin(user?.email);
+  const accessDenied = adminAccessDenied || Boolean(requiredAccess && !billing.access[requiredAccess]);
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef3f8_100%)]">
@@ -150,7 +153,7 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="flex flex-wrap items-center gap-2">
-            {navItems.filter((item) => !item.access || billing.access[item.access]).map((item) => {
+            {navItems.filter((item) => (!item.access || billing.access[item.access]) && (!item.adminOnly || isPlatformAdmin(user?.email))).map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href;
               return (
@@ -218,14 +221,16 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
               <div className="mx-auto flex size-12 items-center justify-center rounded-lg bg-orange-100 text-orange-700">
                 <LockKeyhole className="size-6" />
               </div>
-              <CardTitle>Recurso nao incluido no seu plano</CardTitle>
+              <CardTitle>{adminAccessDenied ? "Acesso administrativo restrito" : "Recurso nao incluido no seu plano"}</CardTitle>
               <CardDescription>
-                Escolha um plano compativel e confirme o metodo de pagamento no Stripe para liberar esta area.
+                {adminAccessDenied
+                  ? "Esta area esta disponivel somente para a conta administradora do AssinaSol."
+                  : "Escolha um plano compativel e confirme o metodo de pagamento no Stripe para liberar esta area."}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Link href="/planos" className={cn(buttonVariants(), "bg-orange-600 text-white hover:bg-orange-700")}>
-                Ver planos disponiveis
+              <Link href={adminAccessDenied ? "/inicio" : "/planos"} className={cn(buttonVariants(), "bg-orange-600 text-white hover:bg-orange-700")}>
+                {adminAccessDenied ? "Voltar ao inicio" : "Ver planos disponiveis"}
               </Link>
             </CardContent>
           </Card>
