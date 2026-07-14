@@ -675,10 +675,12 @@ export function UploadInvoiceFlow() {
               Extraia dados da conta de energia, revise o cliente, configure a cobranca solar e gere uma proposta em PDF com demonstrativo completo.
             </p>
           </div>
-          <Link href="/clientes" className={cn(buttonVariants({ variant: "secondary" }))}>
-            <Database className="size-4" />
-            Banco de dados de Clientes
-          </Link>
+          {billing.access.canSaveClients ? (
+            <Link href="/clientes" className={cn(buttonVariants({ variant: "secondary" }))}>
+              <Database className="size-4" />
+              Banco de dados de Clientes
+            </Link>
+          ) : null}
         </header>
 
         <form className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]" onSubmit={handleSubmit(generatePdf, onInvalid)}>
@@ -741,13 +743,13 @@ export function UploadInvoiceFlow() {
             </Section>
 
             <Section title="2. Dados da Conta" description="Revise os dados do cliente antes de salvar ou atualizar a UC." icon={ReceiptText}>
-              <Alert className="mb-4 border-slate-200 bg-slate-50">
+              {billing.access.canSaveClients ? <Alert className="mb-4 border-slate-200 bg-slate-50">
                 <Database className="size-4 text-slate-700" />
                 <AlertTitle>Como o cliente e salvo</AlertTitle>
                 <AlertDescription>
                   Adicionar cliente salva um cadastro manual. Carregar fatura tambem salva ou atualiza o cliente pela UC, seja pelo botao abaixo ou automaticamente ao gerar o PDF.
                 </AlertDescription>
-              </Alert>
+              </Alert> : null}
 
               {clientNotice ? (
                 <Alert className="mb-4 border-blue-200 bg-blue-50">
@@ -786,7 +788,7 @@ export function UploadInvoiceFlow() {
                 </Field>
               </div>
 
-              <div className="mt-5 flex flex-wrap gap-3">
+              {billing.access.canSaveClients ? <div className="mt-5 flex flex-wrap gap-3">
                 <Button type="button" onClick={() => void saveClient()} disabled={savingClient}>
                   {savingClient ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                   Salvar dados do cliente
@@ -795,7 +797,7 @@ export function UploadInvoiceFlow() {
                   <Database className="size-4" />
                   Banco de dados de Clientes
                 </Link>
-              </div>
+              </div> : null}
             </Section>
 
             <Section title="3. Configuracoes da Fatura Solar" description="Mes de referencia, vencimento, consumo e dados de cobranca." icon={Calculator}>
@@ -961,7 +963,7 @@ export function UploadInvoiceFlow() {
               </Alert>
             </Section>
 
-            <Section title="Multa e juros de mora" description="Registre valores de faturas pagas em atraso. Eles entram automaticamente nesta fatura como pendentes." icon={AlertCircle}>
+            {billing.access.canUseLateFees ? <Section title="Multa e juros de mora" description="Registre valores de faturas pagas em atraso. Eles entram automaticamente nesta fatura como pendentes." icon={AlertCircle}>
               <div className="grid gap-3 md:grid-cols-3">
                 <Field label="Mes de referencia da fatura em atraso" helper="Informe o mes/ano da fatura que foi paga fora do prazo. Exemplo: Maio/2026.">
                   <Input value={lateFeeDraft.originalInvoiceReference} onChange={(event) => setLateFeeDraft({ ...lateFeeDraft, originalInvoiceReference: event.target.value })} placeholder="Ex.: Maio/2026" />
@@ -1013,7 +1015,7 @@ export function UploadInvoiceFlow() {
                   </div>
                 )) : <p className="p-3 text-sm text-muted-foreground">Nenhuma multa ou juros pendente.</p>}
               </div>
-            </Section>
+            </Section> : null}
 
             <Section title="Observacoes" description="Mensagem personalizada exibida no PDF final." icon={FileText}>
               <Textarea {...register("notes")} rows={4} placeholder="Mensagem para o cliente" />
@@ -1037,7 +1039,7 @@ export function UploadInvoiceFlow() {
                   <div className="flex justify-between gap-3"><span>Bandeira tarifaria</span><strong>{formatCurrency(preview.tariffFlagCost)}</strong></div>
                   <div className="flex justify-between gap-3"><span>Outras taxas</span><strong>{formatCurrency(previewFeesWithoutTariff)}</strong></div>
                   <div className="flex justify-between gap-3"><span>Descontos extras</span><strong>-{formatCurrency(preview.totalExtraDiscounts)}</strong></div>
-                  <div className="flex justify-between gap-3"><span>Multa e juros</span><strong>{formatCurrency(preview.totalLateFees)}</strong></div>
+                  {billing.access.canUseLateFees ? <div className="flex justify-between gap-3"><span>Multa e juros</span><strong>{formatCurrency(preview.totalLateFees)}</strong></div> : null}
                 </div>
                 <Separator />
                 <div className="rounded-lg bg-green-50 p-3 text-sm text-green-900">

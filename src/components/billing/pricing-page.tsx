@@ -33,7 +33,7 @@ const commercialFeatures = [
 export function PricingPage() {
   const router = useRouter();
   const { configured, user } = useAuth();
-  const { billing, startTrial, updating } = useBilling({ autoLoad: Boolean(user || !configured) });
+  const { billing, startCheckout, openBillingPortal, updating } = useBilling({ autoLoad: Boolean(user || !configured) });
 
   async function choosePlan(plan: PlanId) {
     if (configured && !user) {
@@ -44,12 +44,15 @@ export function PricingPage() {
     }
 
     try {
-      await startTrial(plan);
+      const hasManagedSubscription = billing.subscription?.provider === "stripe"
+        && ["trialing", "active", "past_due"].includes(billing.status);
+      const url = hasManagedSubscription
+        ? await openBillingPortal()
+        : await startCheckout(plan);
       localStorage.removeItem(pendingPlanStorageKey);
-      toast.success(`Teste gratis de ${trialDays} dias iniciado no plano ${planCatalog[plan].name}.`);
-      router.push("/inicio");
+      window.location.assign(url);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Nao foi possivel iniciar o teste.");
+      toast.error(error instanceof Error ? error.message : "Nao foi possivel abrir o pagamento.");
     }
   }
 
@@ -113,7 +116,7 @@ export function PricingPage() {
           <CardHeader>
             <CardTitle className="text-2xl">Fluxo comercial pronto</CardTitle>
             <CardDescription className="text-slate-300">
-              Escolha um plano, crie a conta e libere o teste automaticamente.
+              Escolha um plano, cadastre o cartao no Stripe e libere o teste automaticamente.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-3">
@@ -135,7 +138,8 @@ export function PricingPage() {
         <div className="mb-6">
           <h2 className="text-2xl font-semibold tracking-tight">Planos do {appBrand.name}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Depois de escolher o plano, o teste gratis de {trialDays} dias e ativado automaticamente.
+            Cadastre o pagamento com seguranca no Stripe. Nada e cobrado hoje; o teste de {trialDays} dias
+            comeca somente depois da confirmacao do cartao.
           </p>
         </div>
 
@@ -175,7 +179,7 @@ export function PricingPage() {
                     onClick={() => choosePlan(plan.id)}
                   >
                     {updating ? <Loader2 className="size-4 animate-spin" /> : null}
-                    {selected ? "Plano selecionado" : plan.cta}
+                    {selected ? "Gerenciar assinatura" : plan.cta}
                   </Button>
                 </CardContent>
               </Card>

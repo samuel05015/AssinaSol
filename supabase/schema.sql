@@ -168,9 +168,13 @@ create table if not exists public.user_subscriptions (
   provider text,
   provider_customer_id text,
   provider_subscription_id text,
+  payment_method_collected boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.user_subscriptions
+add column if not exists payment_method_collected boolean not null default false;
 
 alter table public.user_invoice_settings
 add column if not exists company_name text;
@@ -248,6 +252,9 @@ create index if not exists invoices_due_date_idx on public.invoices(due_date);
 create index if not exists late_fees_client_status_idx on public.late_fees(client_id, status);
 create index if not exists client_billing_profiles_user_id_idx on public.client_billing_profiles(user_id);
 create index if not exists user_subscriptions_user_id_idx on public.user_subscriptions(user_id);
+create unique index if not exists user_subscriptions_provider_subscription_idx
+on public.user_subscriptions(provider_subscription_id)
+where provider_subscription_id is not null;
 
 alter table public.clients enable row level security;
 alter table public.invoices enable row level security;
@@ -306,10 +313,10 @@ using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
 drop policy if exists "Users can manage own subscriptions" on public.user_subscriptions;
-create policy "Users can manage own subscriptions"
-on public.user_subscriptions for all
-using (auth.uid() = user_id)
-with check (auth.uid() = user_id);
+drop policy if exists "Users can view own subscriptions" on public.user_subscriptions;
+create policy "Users can view own subscriptions"
+on public.user_subscriptions for select
+using (auth.uid() = user_id);
 
 insert into storage.buckets (id, name, public)
 values ('solar-invoices', 'solar-invoices', true)

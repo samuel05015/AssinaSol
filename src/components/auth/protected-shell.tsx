@@ -3,33 +3,43 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { CreditCard, FileUp, Home, Loader2, LogOut, ReceiptText, Settings2, UserPlus, UsersRound } from "lucide-react";
+import { CreditCard, FileUp, Home, Loader2, LockKeyhole, LogOut, ReceiptText, Settings2, UserPlus, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/components/auth/auth-provider";
 import { appBrand } from "@/lib/brand";
-import { planCatalog } from "@/lib/billing/plans";
+import { planCatalog, type PlanAccess } from "@/lib/billing/plans";
 import { pendingPlanStorageKey, useBilling } from "@/hooks/use-billing";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { href: "/inicio", label: "Inicio", icon: Home },
-  { href: "/clientes", label: "Clientes", icon: UsersRound },
-  { href: "/faturas", label: "Faturas", icon: ReceiptText },
-  { href: "/clientes/novo", label: "Adicionar cliente", icon: UserPlus },
-  { href: "/carregar-fatura", label: "Carregar fatura", icon: FileUp },
-  { href: "/configuracoes", label: "Configuracoes", icon: Settings2 },
+  { href: "/inicio", label: "Inicio", icon: Home, access: "canGenerate" as keyof PlanAccess },
+  { href: "/clientes", label: "Clientes", icon: UsersRound, access: "canSaveClients" as keyof PlanAccess },
+  { href: "/faturas", label: "Faturas", icon: ReceiptText, access: "canUseInvoiceHistory" as keyof PlanAccess },
+  { href: "/clientes/novo", label: "Adicionar cliente", icon: UserPlus, access: "canSaveClients" as keyof PlanAccess },
+  { href: "/carregar-fatura", label: "Carregar fatura", icon: FileUp, access: "canGenerate" as keyof PlanAccess },
+  { href: "/configuracoes", label: "Configuracoes", icon: Settings2, access: "canCustomizeProposal" as keyof PlanAccess },
   { href: "/planos", label: "Planos", icon: CreditCard },
 ];
+
+function requiredAccessForPath(pathname: string): keyof PlanAccess | null {
+  if (pathname === "/inicio") return "canGenerate";
+  if (pathname.startsWith("/clientes")) return "canSaveClients";
+  if (pathname.startsWith("/faturas")) return "canUseInvoiceHistory";
+  if (pathname.startsWith("/configuracoes")) return "canCustomizeProposal";
+  if (pathname.startsWith("/carregar-fatura")) return "canGenerate";
+  return null;
+}
 
 export function ProtectedShell({ children }: { children: React.ReactNode }) {
   const { configured, getAuthHeaders, loading, user, signOut } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [companyName, setCompanyName] = useState(appBrand.name);
-  const { billing, loadBilling, startTrial } = useBilling({ autoLoad: Boolean(user || !configured) });
+  const { billing, loading: billingLoading, startCheckout } = useBilling({ autoLoad: Boolean(user || !configured) });
 
   useEffect(() => {
     if (configured && !loading && !user) {
@@ -43,19 +53,18 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
     const pendingPlan = window.localStorage.getItem(pendingPlanStorageKey);
     if (!pendingPlan || !(pendingPlan in planCatalog)) return;
 
-    startTrial(pendingPlan as keyof typeof planCatalog)
-      .then(() => {
+    startCheckout(pendingPlan as keyof typeof planCatalog)
+      .then((url) => {
         window.localStorage.removeItem(pendingPlanStorageKey);
-        toast.success("Plano selecionado e teste gratis ativado.");
-        void loadBilling();
+        window.location.assign(url);
       })
       .catch((error) => {
         toast.error(error instanceof Error ? error.message : "Nao foi possivel ativar o plano escolhido.");
       });
-  }, [configured, loadBilling, startTrial, user]);
+  }, [configured, startCheckout, user]);
 
   useEffect(() => {
-    if (!configured || !user) {
+    if (!configured || !user || billingLoading || !billing.access.canCustomizeProposal) {
       return;
     }
 
@@ -85,7 +94,7 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
     return () => {
       active = false;
     };
-  }, [configured, getAuthHeaders, user]);
+  }, [billing.access.canCustomizeProposal, billingLoading, configured, getAuthHeaders, user]);
 
   useEffect(() => {
     function handleSettingsUpdate(event: Event) {
@@ -103,7 +112,7 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  if (loading || (configured && !user)) {
+  if (loading || (configured && !user) || (configured && user && billingLoading)) {
     return (
       <main className="grid min-h-screen place-items-center bg-slate-50">
         <div className="flex items-center gap-3 text-sm text-slate-600">
@@ -113,6 +122,9 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
       </main>
     );
   }
+
+  const requiredAccess = requiredAccessForPath(pathname);
+  const accessDenied = Boolean(requiredAccess && !billing.access[requiredAccess]);
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef3f8_100%)]">
@@ -138,7 +150,7 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <nav className="flex flex-wrap items-center gap-2">
-            {navItems.map((item) => {
+            {navItems.filter((item) => !item.access || billing.access[item.access]).map((item) => {
               const Icon = item.icon;
               const active = pathname === item.href;
               return (
@@ -199,7 +211,26 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
-      {children}
+      {accessDenied ? (
+        <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+          <Card className="rounded-lg border-slate-200 bg-white text-center shadow-sm">
+            <CardHeader>
+              <div className="mx-auto flex size-12 items-center justify-center rounded-lg bg-orange-100 text-orange-700">
+                <LockKeyhole className="size-6" />
+              </div>
+              <CardTitle>Recurso nao incluido no seu plano</CardTitle>
+              <CardDescription>
+                Escolha um plano compativel e confirme o metodo de pagamento no Stripe para liberar esta area.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/planos" className={cn(buttonVariants(), "bg-orange-600 text-white hover:bg-orange-700")}>
+                Ver planos disponiveis
+              </Link>
+            </CardContent>
+          </Card>
+        </div>
+      ) : children}
     </main>
   );
 }

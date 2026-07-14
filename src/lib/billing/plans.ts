@@ -22,6 +22,10 @@ export type BillingSubscription = {
   trialStartedAt: string;
   trialEndsAt: string;
   currentPeriodEndsAt?: string | null;
+  provider?: string | null;
+  providerCustomerId?: string | null;
+  providerSubscriptionId?: string | null;
+  paymentMethodCollected: boolean;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -122,6 +126,7 @@ export function isPlanId(value: unknown): value is PlanId {
 
 export function getPlanAccess(subscription?: BillingSubscription | null): PlanAccess {
   if (!subscription) return noPlanAccess;
+  if (!subscription.paymentMethodCollected) return noPlanAccess;
   const now = Date.now();
   const trialEndsAt = Date.parse(subscription.trialEndsAt);
   const paidEndsAt = subscription.currentPeriodEndsAt ? Date.parse(subscription.currentPeriodEndsAt) : Number.NaN;

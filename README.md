@@ -32,6 +32,12 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
 SOLAR_DEMO_USER_ID=
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+STRIPE_PRICE_STARTER=
+STRIPE_PRICE_PRO=
+STRIPE_PRICE_PREMIUM=
 ```
 
 Sem Supabase configurado, o app continua funcionando para preview: a autenticacao fica liberada localmente, clientes retornam em modo local e PDFs sao devolvidos como data URL.
@@ -45,7 +51,30 @@ Execute `supabase/schema.sql` no SQL Editor do Supabase. Ele cria:
 - `invoice_adjustments`
 - `late_fees`
 - `user_invoice_settings`
+- `user_subscriptions`
 - bucket `solar-invoices`
+
+## Assinaturas Stripe
+
+Crie no Stripe tres precos recorrentes mensais em BRL e informe os respectivos Price IDs nas variaveis `STRIPE_PRICE_*`.
+O Checkout coleta o cartao antes de iniciar os 3 dias gratis e cobra o primeiro ciclo ao final do teste.
+
+Cadastre o webhook abaixo no Stripe:
+
+```text
+https://SEU-DOMINIO/api/billing/webhook
+```
+
+Eventos usados:
+
+- `checkout.session.completed`
+- `customer.subscription.created`
+- `customer.subscription.updated`
+- `customer.subscription.deleted`
+- `customer.subscription.paused`
+- `customer.subscription.resumed`
+
+Copie o segredo de assinatura do webhook para `STRIPE_WEBHOOK_SECRET`. Ative o Customer Portal no Stripe para permitir troca de plano, atualizacao do cartao e cancelamento.
 
 ## Rotas principais
 

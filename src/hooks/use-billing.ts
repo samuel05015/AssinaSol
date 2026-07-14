@@ -55,20 +55,36 @@ export function useBilling(options?: { autoLoad?: boolean }) {
     }
   }, [configured, getAuthHeaders, user]);
 
-  const startTrial = useCallback(async (plan: PlanId) => {
+  const startCheckout = useCallback(async (plan: PlanId) => {
     setUpdating(true);
     try {
-      const response = await fetch("/api/billing/subscription", {
+      const response = await fetch("/api/billing/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ plan }),
       });
-      const data = await response.json() as BillingResponse & { message?: string };
+      const data = await response.json() as { url?: string; error?: string };
       if (!response.ok) {
-        throw new Error(data.error ?? "Nao foi possivel iniciar o teste.");
+        throw new Error(data.error ?? "Nao foi possivel abrir o pagamento.");
       }
-      setBilling(data);
-      return data;
+      if (!data.url) throw new Error("O Stripe nao retornou a pagina de pagamento.");
+      return data.url;
+    } finally {
+      setUpdating(false);
+    }
+  }, [getAuthHeaders]);
+
+  const openBillingPortal = useCallback(async () => {
+    setUpdating(true);
+    try {
+      const response = await fetch("/api/billing/portal", {
+        method: "POST",
+        headers: getAuthHeaders(),
+      });
+      const data = await response.json() as { url?: string; error?: string };
+      if (!response.ok) throw new Error(data.error ?? "Nao foi possivel gerenciar a assinatura.");
+      if (!data.url) throw new Error("O Stripe nao retornou o portal da assinatura.");
+      return data.url;
     } finally {
       setUpdating(false);
     }
@@ -91,7 +107,8 @@ export function useBilling(options?: { autoLoad?: boolean }) {
     loading,
     updating,
     loadBilling,
-    startTrial,
+    startCheckout,
+    openBillingPortal,
     plans: Object.values(planCatalog),
   };
 }

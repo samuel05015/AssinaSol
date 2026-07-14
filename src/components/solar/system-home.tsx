@@ -19,6 +19,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { appBrand } from "@/lib/brand";
+import { useBilling } from "@/hooks/use-billing";
+import type { PlanAccess } from "@/lib/billing/plans";
 import { formatCurrency } from "@/lib/solar/format";
 import type { DashboardStats, InvoiceStatus } from "@/lib/solar/types";
 import { cn } from "@/lib/utils";
@@ -30,24 +32,28 @@ const actions = [
     href: "/clientes",
     icon: UsersRound,
     primary: true,
+    access: "canSaveClients" as keyof PlanAccess,
   },
   {
     title: "Faturas",
     description: "Acompanhe PDFs gerados, status de cobranca, envio e recorrencia mensal.",
     href: "/faturas",
     icon: ReceiptText,
+    access: "canUseInvoiceHistory" as keyof PlanAccess,
   },
   {
     title: "Carregar fatura",
     description: "Anexe PDF opcionalmente ou preencha manualmente para gerar a proposta.",
     href: "/carregar-fatura",
     icon: FileUp,
+    access: "canGenerate" as keyof PlanAccess,
   },
   {
     title: "Configuracoes",
     description: "Personalize logo, empresa, cor e layout das propostas geradas em PDF.",
     href: "/configuracoes",
     icon: Settings2,
+    access: "canCustomizeProposal" as keyof PlanAccess,
   },
 ];
 
@@ -78,10 +84,14 @@ function formatDate(value: string) {
 
 export function SystemHome() {
   const { getAuthHeaders } = useAuth();
+  const { billing, loading: billingLoading } = useBilling();
   const [stats, setStats] = useState<DashboardStats>(emptyStats);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (billingLoading) return;
+    if (!billing.access.canUseDashboard) return;
+
     let active = true;
 
     async function loadDashboard() {
@@ -104,7 +114,10 @@ export function SystemHome() {
     return () => {
       active = false;
     };
-  }, [getAuthHeaders]);
+  }, [billing.access.canUseDashboard, billingLoading, getAuthHeaders]);
+
+  const availableActions = actions.filter((action) => billing.access[action.access]);
+  const dashboardLoading = billing.access.canUseDashboard && loading;
 
   return (
     <ProtectedShell>
@@ -116,7 +129,7 @@ export function SystemHome() {
               <h1 className="text-3xl font-semibold tracking-tight">Bem-vindo ao {appBrand.name}</h1>
               <p className="mt-2 text-sm font-medium text-orange-100">{appBrand.tagline}</p>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-                Acompanhe clientes, faturas emitidas, valores em aberto, inadimplencia e economia estimada em um unico painel.
+                Gere propostas solares e acesse somente as ferramentas incluidas no seu plano atual.
               </p>
             </div>
             <Link href="/carregar-fatura" className={cn(buttonVariants(), "bg-orange-600 text-white hover:bg-orange-700")}>
@@ -127,7 +140,7 @@ export function SystemHome() {
         </section>
 
         <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {actions.map((action) => {
+          {availableActions.map((action) => {
             const Icon = action.icon;
             return (
               <Card key={action.href} className="rounded-lg border-0 shadow-sm ring-slate-200">
@@ -148,45 +161,45 @@ export function SystemHome() {
           })}
         </section>
 
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {billing.access.canUseDashboard ? <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Card className="rounded-lg border-0 shadow-sm ring-slate-200">
             <CardHeader>
               <UsersRound className="size-5 text-orange-600" />
-              <CardTitle>{loading ? <Loader2 className="size-5 animate-spin" /> : stats.clientsCount}</CardTitle>
+              <CardTitle>{dashboardLoading ? <Loader2 className="size-5 animate-spin" /> : stats.clientsCount}</CardTitle>
               <CardDescription>Clientes ativos</CardDescription>
             </CardHeader>
           </Card>
           <Card className="rounded-lg border-0 shadow-sm ring-slate-200">
             <CardHeader>
               <WalletCards className="size-5 text-orange-600" />
-              <CardTitle>{loading ? <Loader2 className="size-5 animate-spin" /> : formatCurrency(stats.monthRevenue)}</CardTitle>
+              <CardTitle>{dashboardLoading ? <Loader2 className="size-5 animate-spin" /> : formatCurrency(stats.monthRevenue)}</CardTitle>
               <CardDescription>Total emitido no mes</CardDescription>
             </CardHeader>
           </Card>
           <Card className="rounded-lg border-0 shadow-sm ring-slate-200">
             <CardHeader>
               <ReceiptText className="size-5 text-blue-600" />
-              <CardTitle>{loading ? <Loader2 className="size-5 animate-spin" /> : formatCurrency(stats.pendingTotal)}</CardTitle>
+              <CardTitle>{dashboardLoading ? <Loader2 className="size-5 animate-spin" /> : formatCurrency(stats.pendingTotal)}</CardTitle>
               <CardDescription>Valor em aberto</CardDescription>
             </CardHeader>
           </Card>
           <Card className="rounded-lg border-0 shadow-sm ring-slate-200">
             <CardHeader>
               <ReceiptText className="size-5 text-red-600" />
-              <CardTitle>{loading ? <Loader2 className="size-5 animate-spin" /> : formatCurrency(stats.overdueTotal)}</CardTitle>
+              <CardTitle>{dashboardLoading ? <Loader2 className="size-5 animate-spin" /> : formatCurrency(stats.overdueTotal)}</CardTitle>
               <CardDescription>Vencidas nao pagas</CardDescription>
             </CardHeader>
           </Card>
-        </section>
+        </section> : null}
 
-        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        {billing.access.canUseDashboard ? <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <Card className="rounded-lg border-0 shadow-sm ring-slate-200">
             <CardHeader>
               <CardTitle>Ultimas faturas</CardTitle>
               <CardDescription>Historico recente com status e vencimento.</CardDescription>
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {dashboardLoading ? (
                 <div className="flex items-center justify-center gap-3 rounded-lg border bg-slate-50 p-8 text-sm text-muted-foreground">
                   <Loader2 className="size-5 animate-spin" />
                   Carregando faturas...
@@ -251,7 +264,7 @@ export function SystemHome() {
               </Link>
             </CardContent>
           </Card>
-        </section>
+        </section> : null}
       </div>
     </ProtectedShell>
   );
