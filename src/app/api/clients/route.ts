@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { billingRequiredMessage, getBillingState } from "@/lib/billing/server";
 import { getRequestUserId, getSupabaseAdmin } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -37,6 +38,11 @@ export async function GET(request: Request) {
   const supabase = getSupabaseAdmin();
   const userId = await getRequestUserId(request);
   const search = sanitizeSearch(new URL(request.url).searchParams.get("search"));
+  const billing = await getBillingState(supabase, userId);
+
+  if (!billing.access.canSaveClients) {
+    return NextResponse.json({ clients: [], error: billingRequiredMessage("clients") }, { status: 402 });
+  }
 
   if (!supabase) {
     return NextResponse.json({
@@ -76,6 +82,11 @@ export async function DELETE(request: Request) {
   const supabase = getSupabaseAdmin();
   const userId = await getRequestUserId(request);
   const id = new URL(request.url).searchParams.get("id");
+  const billing = await getBillingState(supabase, userId);
+
+  if (!billing.access.canSaveClients) {
+    return NextResponse.json({ error: billingRequiredMessage("clients") }, { status: 402 });
+  }
 
   if (!id) {
     return NextResponse.json({ error: "Informe o cliente para excluir." }, { status: 400 });

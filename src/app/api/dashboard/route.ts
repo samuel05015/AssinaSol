@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { billingRequiredMessage, getBillingState } from "@/lib/billing/server";
 import { getRequestUserId, getSupabaseAdmin } from "@/lib/supabase/server";
 import type { DashboardStats, InvoiceListItem, InvoiceStatus } from "@/lib/solar/types";
 
@@ -74,6 +75,21 @@ function toInvoice(row: InvoiceRow): InvoiceListItem {
 export async function GET(request: Request) {
   const supabase = getSupabaseAdmin();
   const userId = await getRequestUserId(request);
+  const billing = await getBillingState(supabase, userId);
+
+  if (!billing.access.canUseDashboard) {
+    const empty: DashboardStats = {
+      clientsCount: 0,
+      invoicesCount: 0,
+      monthRevenue: 0,
+      pendingTotal: 0,
+      overdueTotal: 0,
+      paidTotal: 0,
+      estimatedSavingsTotal: 0,
+      recentInvoices: [],
+    };
+    return NextResponse.json({ stats: empty, warning: billingRequiredMessage("history") });
+  }
 
   if (!supabase) {
     const empty: DashboardStats = {

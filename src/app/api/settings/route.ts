@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { appBrand } from "@/lib/brand";
+import { billingRequiredMessage, getBillingState } from "@/lib/billing/server";
 import { companySettingsSchema } from "@/lib/solar/schemas";
 import { getRequestUserId, getSupabaseAdmin } from "@/lib/supabase/server";
 
@@ -45,6 +46,14 @@ function readFormString(formData: FormData, key: string) {
 export async function GET(request: Request) {
   const supabase = getSupabaseAdmin();
   const userId = await getRequestUserId(request);
+  const billing = await getBillingState(supabase, userId);
+
+  if (!billing.access.canCustomizeProposal) {
+    return NextResponse.json({
+      settings: defaultSettings,
+      warning: billingRequiredMessage("settings"),
+    });
+  }
 
   if (!supabase) {
     return NextResponse.json({
@@ -69,6 +78,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const supabase = getSupabaseAdmin();
   const userId = await getRequestUserId(request);
+  const billing = await getBillingState(supabase, userId);
+
+  if (!billing.access.canCustomizeProposal) {
+    return NextResponse.json({ error: billingRequiredMessage("settings") }, { status: 402 });
+  }
+
   const formData = await request.formData();
   const currentLogoUrl = readFormString(formData, "companyLogoUrl");
 

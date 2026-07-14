@@ -157,6 +157,21 @@ create table if not exists public.user_invoice_settings (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.user_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null unique,
+  plan text not null check (plan in ('starter', 'pro', 'premium')),
+  status text not null default 'trialing' check (status in ('trialing', 'active', 'past_due', 'canceled', 'expired')),
+  trial_started_at timestamptz not null default now(),
+  trial_ends_at timestamptz not null,
+  current_period_ends_at timestamptz,
+  provider text,
+  provider_customer_id text,
+  provider_subscription_id text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.user_invoice_settings
 add column if not exists company_name text;
 
@@ -219,6 +234,11 @@ create trigger user_invoice_settings_set_updated_at
 before update on public.user_invoice_settings
 for each row execute function public.set_updated_at();
 
+drop trigger if exists user_subscriptions_set_updated_at on public.user_subscriptions;
+create trigger user_subscriptions_set_updated_at
+before update on public.user_subscriptions
+for each row execute function public.set_updated_at();
+
 create index if not exists clients_user_id_idx on public.clients(user_id);
 create index if not exists clients_uc_code_idx on public.clients(uc_code);
 create index if not exists invoices_user_id_idx on public.invoices(user_id);
@@ -227,6 +247,7 @@ create index if not exists invoices_user_status_idx on public.invoices(user_id, 
 create index if not exists invoices_due_date_idx on public.invoices(due_date);
 create index if not exists late_fees_client_status_idx on public.late_fees(client_id, status);
 create index if not exists client_billing_profiles_user_id_idx on public.client_billing_profiles(user_id);
+create index if not exists user_subscriptions_user_id_idx on public.user_subscriptions(user_id);
 
 alter table public.clients enable row level security;
 alter table public.invoices enable row level security;
@@ -234,6 +255,7 @@ alter table public.invoice_adjustments enable row level security;
 alter table public.late_fees enable row level security;
 alter table public.user_invoice_settings enable row level security;
 alter table public.client_billing_profiles enable row level security;
+alter table public.user_subscriptions enable row level security;
 
 drop policy if exists "Users can manage own clients" on public.clients;
 create policy "Users can manage own clients"
@@ -280,6 +302,12 @@ with check (auth.uid() = user_id);
 drop policy if exists "Users can manage own billing profiles" on public.client_billing_profiles;
 create policy "Users can manage own billing profiles"
 on public.client_billing_profiles for all
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
+
+drop policy if exists "Users can manage own subscriptions" on public.user_subscriptions;
+create policy "Users can manage own subscriptions"
+on public.user_subscriptions for all
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 

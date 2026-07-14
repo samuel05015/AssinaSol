@@ -35,6 +35,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/components/auth/auth-provider";
 import { pendingClientStorageKey, pendingInvoiceDraftStorageKey } from "@/components/solar/add-client-form";
+import { useBilling } from "@/hooks/use-billing";
 import { appBrand } from "@/lib/brand";
 import { calculateInvoice, calculateLateFee } from "@/lib/solar/calculate";
 import { formatCurrency, formatKwh, maskBrazilianPhone, maskCpfCnpj } from "@/lib/solar/format";
@@ -243,6 +244,7 @@ function hasText(value?: string | null) {
 
 export function UploadInvoiceFlow() {
   const { getAuthHeaders } = useAuth();
+  const { billing } = useBilling();
   const [file, setFile] = useState<File | null>(null);
   const [password, setPassword] = useState(getRememberedPdfPassword);
   const [remember, setRemember] = useState<RememberState>(initialRemember);
@@ -535,6 +537,13 @@ export function UploadInvoiceFlow() {
   }
 
   async function saveClient(options?: { silent?: boolean }) {
+    if (!billing.access.canSaveClients) {
+      if (!options?.silent) {
+        toast.info("Seu plano atual gera PDFs sem salvar clientes. Para salvar cadastros, use o plano Profissional ou Completo.");
+      }
+      return false;
+    }
+
     const values = getValues().client;
     setSavingClient(true);
     try {
@@ -606,7 +615,10 @@ export function UploadInvoiceFlow() {
     setPdfUrl("");
     setPixCopyPaste("");
     try {
-      const clientSaved = await saveClient({ silent: true });
+      let clientSaved = true;
+      if (billing.access.canSaveClients) {
+        clientSaved = await saveClient({ silent: true });
+      }
       if (!clientSaved) return;
 
       saveRememberedSettings();
@@ -625,7 +637,7 @@ export function UploadInvoiceFlow() {
       }));
       setPdfUrl(data.url);
       setPixCopyPaste(data.pixCopyPaste ?? "");
-      toast.success(data.warning ?? "Cliente salvo e Fatura Solar gerada com sucesso.");
+      toast.success(data.warning ?? (billing.access.canSaveClients ? "Cliente salvo e Fatura Solar gerada com sucesso." : "Fatura Solar gerada sem salvar cliente neste plano."));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Nao foi possivel gerar o PDF.");
     } finally {

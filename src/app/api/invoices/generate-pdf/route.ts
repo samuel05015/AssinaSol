@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { appBrand } from "@/lib/brand";
+import { billingRequiredMessage, getBillingState } from "@/lib/billing/server";
 import { calculateInvoice } from "@/lib/solar/calculate";
 import { invoiceCalculationSchema } from "@/lib/solar/schemas";
 import { buildInvoicePdf } from "@/lib/solar/pdf-generator";
@@ -209,10 +210,18 @@ export async function POST(request: Request) {
   const input = parsed.data;
   const supabase = getSupabaseAdmin();
   const userId = await getRequestUserId(request);
+  const billing = await getBillingState(supabase, userId);
+
+  if (!billing.access.canGenerate) {
+    return NextResponse.json({ error: billingRequiredMessage("plan") }, { status: 402 });
+  }
+
   const invoiceNumber = await nextInvoiceNumber(supabase, userId, input.invoiceNumber);
   const inputWithNumber = { ...input, invoiceNumber };
   const calculation = calculateInvoice(inputWithNumber);
-  const brandSettings = await getBrandSettings(supabase, userId);
+  const brandSettings = billing.access.canCustomizeProposal
+    ? await getBrandSettings(supabase, userId)
+    : await getBrandSettings(null, userId);
   const pixCopyPaste = buildPixCopyPaste({
     pixKey: inputWithNumber.pixKey,
     receiverName: inputWithNumber.receiverName,
@@ -221,12 +230,14 @@ export async function POST(request: Request) {
   });
   const pdfBytes = await buildInvoicePdf(inputWithNumber, calculation, brandSettings);
 
-  if (!supabase) {
+  if (!supabase || !billing.access.canUseInvoiceHistory) {
     return NextResponse.json({
       url: toDataUrl(pdfBytes),
       calculation,
       pixCopyPaste,
-      warning: "Supabase nao configurado. PDF retornado como data URL.",
+      warning: !supabase
+        ? "Supabase nao configurado. PDF retornado como data URL."
+        : "PDF gerado sem salvar no historico deste plano.",
     });
   }
 

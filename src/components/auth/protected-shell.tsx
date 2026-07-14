@@ -3,12 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { FileUp, Home, Loader2, LogOut, ReceiptText, Settings2, UserPlus, UsersRound } from "lucide-react";
+import { CreditCard, FileUp, Home, Loader2, LogOut, ReceiptText, Settings2, UserPlus, UsersRound } from "lucide-react";
+import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
 import { appBrand } from "@/lib/brand";
+import { planCatalog } from "@/lib/billing/plans";
+import { pendingPlanStorageKey, useBilling } from "@/hooks/use-billing";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -18,6 +21,7 @@ const navItems = [
   { href: "/clientes/novo", label: "Adicionar cliente", icon: UserPlus },
   { href: "/carregar-fatura", label: "Carregar fatura", icon: FileUp },
   { href: "/configuracoes", label: "Configuracoes", icon: Settings2 },
+  { href: "/planos", label: "Planos", icon: CreditCard },
 ];
 
 export function ProtectedShell({ children }: { children: React.ReactNode }) {
@@ -25,12 +29,30 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [companyName, setCompanyName] = useState(appBrand.name);
+  const { billing, loadBilling, startTrial } = useBilling({ autoLoad: Boolean(user || !configured) });
 
   useEffect(() => {
     if (configured && !loading && !user) {
       router.replace("/entrar");
     }
   }, [configured, loading, router, user]);
+
+  useEffect(() => {
+    if (configured && !user) return;
+
+    const pendingPlan = window.localStorage.getItem(pendingPlanStorageKey);
+    if (!pendingPlan || !(pendingPlan in planCatalog)) return;
+
+    startTrial(pendingPlan as keyof typeof planCatalog)
+      .then(() => {
+        window.localStorage.removeItem(pendingPlanStorageKey);
+        toast.success("Plano selecionado e teste gratis ativado.");
+        void loadBilling();
+      })
+      .catch((error) => {
+        toast.error(error instanceof Error ? error.message : "Nao foi possivel ativar o plano escolhido.");
+      });
+  }, [configured, loadBilling, startTrial, user]);
 
   useEffect(() => {
     if (!configured || !user) {
@@ -104,6 +126,15 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
               <p className="text-xs text-muted-foreground">{user?.email ?? "Modo preview sem Supabase"}</p>
             </div>
             {!configured ? <Badge variant="outline">Preview local</Badge> : null}
+            {billing.subscription ? (
+              <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">
+                Plano {planCatalog[billing.subscription.plan].name}
+              </Badge>
+            ) : (
+              <Link href="/planos">
+                <Badge variant="outline">Escolher plano</Badge>
+              </Link>
+            )}
           </div>
 
           <nav className="flex flex-wrap items-center gap-2">
@@ -145,6 +176,24 @@ export function ProtectedShell({ children }: { children: React.ReactNode }) {
             <AlertTitle>Supabase Auth ainda nao configurado</AlertTitle>
             <AlertDescription>
               Preencha `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` para ativar login real. Por enquanto, as telas ficam liberadas em modo preview.
+            </AlertDescription>
+          </Alert>
+        </div>
+      ) : null}
+
+      {configured && user && (!billing.subscription || billing.status === "expired") ? (
+        <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
+          <Alert className="border-blue-200 bg-blue-50">
+            <AlertTitle>{billing.status === "expired" ? "Seu teste gratis terminou" : "Escolha um plano para iniciar o teste gratis"}</AlertTitle>
+            <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                {billing.status === "expired"
+                  ? "Escolha um plano ativo para continuar usando os recursos do sistema."
+                  : "O sistema libera os recursos conforme o plano escolhido. O teste gratis dura 3 dias."}
+              </span>
+              <Link href="/planos" className={cn(buttonVariants(), "w-fit bg-orange-600 text-white hover:bg-orange-700")}>
+                Ver planos
+              </Link>
             </AlertDescription>
           </Alert>
         </div>

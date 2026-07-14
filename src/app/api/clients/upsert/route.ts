@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { billingRequiredMessage, getBillingState } from "@/lib/billing/server";
 import { clientSchema } from "@/lib/solar/schemas";
 import { getRequestUserId, getSupabaseAdmin } from "@/lib/supabase/server";
 
@@ -24,6 +25,11 @@ export async function POST(request: Request) {
   const supabase = getSupabaseAdmin();
   const userId = await getRequestUserId(request);
   const client = parsed.data;
+  const billing = await getBillingState(supabase, userId);
+
+  if (!billing.access.canSaveClients) {
+    return NextResponse.json({ error: billingRequiredMessage("clients") }, { status: 402 });
+  }
 
   if (!supabase) {
     return NextResponse.json({

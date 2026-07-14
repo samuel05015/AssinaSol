@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { billingRequiredMessage, getBillingState } from "@/lib/billing/server";
 import { calculateLateFee } from "@/lib/solar/calculate";
 import { lateFeeInputSchema } from "@/lib/solar/schemas";
 import { getRequestUserId, getSupabaseAdmin } from "@/lib/supabase/server";
@@ -14,6 +15,13 @@ export async function GET(request: Request) {
   }
 
   const supabase = getSupabaseAdmin();
+  const userId = await getRequestUserId(request);
+  const billing = await getBillingState(supabase, userId);
+
+  if (!billing.access.canUseLateFees) {
+    return NextResponse.json({ records: [], warning: billingRequiredMessage("lateFees") });
+  }
+
   if (!supabase) {
     return NextResponse.json({ records: [] });
   }
@@ -53,6 +61,13 @@ export async function POST(request: Request) {
   };
 
   const supabase = getSupabaseAdmin();
+  const userId = await getRequestUserId(request);
+  const billing = await getBillingState(supabase, userId);
+
+  if (!billing.access.canUseLateFees) {
+    return NextResponse.json({ error: billingRequiredMessage("lateFees") }, { status: 402 });
+  }
+
   if (!supabase || !input.clientId) {
     return NextResponse.json({ record: { id: crypto.randomUUID(), ...record } });
   }
@@ -60,7 +75,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("late_fees")
     .insert({
-      user_id: await getRequestUserId(request),
+      user_id: userId,
       client_id: input.clientId,
       original_invoice_reference: input.originalInvoiceReference,
       original_due_date: input.originalDueDate,

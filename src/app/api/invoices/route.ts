@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { billingRequiredMessage, getBillingState } from "@/lib/billing/server";
 import { invoiceStatusSchema } from "@/lib/solar/schemas";
 import { getRequestUserId, getSupabaseAdmin } from "@/lib/supabase/server";
 import type { InvoiceListItem, InvoiceStatus } from "@/lib/solar/types";
@@ -81,6 +82,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const search = sanitizeSearch(url.searchParams.get("search"));
   const clientId = url.searchParams.get("clientId");
+  const billing = await getBillingState(supabase, userId);
+
+  if (!billing.access.canUseInvoiceHistory) {
+    return NextResponse.json({ invoices: [], warning: billingRequiredMessage("history") });
+  }
 
   if (!supabase) {
     return NextResponse.json({
@@ -119,6 +125,11 @@ export async function PATCH(request: Request) {
   const userId = await getRequestUserId(request);
   const url = new URL(request.url);
   const id = url.searchParams.get("id");
+  const billing = await getBillingState(supabase, userId);
+
+  if (!billing.access.canUseInvoiceHistory) {
+    return NextResponse.json({ error: billingRequiredMessage("history") }, { status: 402 });
+  }
 
   if (!id) {
     return NextResponse.json({ error: "Informe a fatura." }, { status: 400 });
