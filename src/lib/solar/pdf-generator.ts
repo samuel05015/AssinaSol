@@ -266,7 +266,7 @@ export async function buildInvoicePdf(input: InvoiceCalculationInput, calculatio
   ctx.y = Math.min(leftY, rightY) - 18;
 
   sectionTitle(ctx, "Resumo da fatura");
-  tableRow(ctx, "Energia solar consumida", formatKwh(input.solarConsumptionKwh), true);
+  tableRow(ctx, "Energia solar considerada", formatKwh(input.solarConsumptionKwh), true);
   tableRow(ctx, "Preco por kWh", formatCurrency(input.pricePerKwh));
   tableRow(ctx, "Subtotal da energia", formatCurrency(calculation.energySubtotal), true);
   tableRow(ctx, `Desconto percentual (${formatNumber(input.discountPercent, 2)}%)`, `-${formatCurrency(calculation.discountValue)}`);
@@ -307,7 +307,7 @@ export async function buildInvoicePdf(input: InvoiceCalculationInput, calculatio
     const used = drawText(ctx, `${index + 1}. ${line}`, 54, ctx.y, { size: 9, maxWidth: 485 });
     ctx.y -= used + 4;
   });
-  const explanation = "O desconto aplicado nesta proposta incide somente sobre o valor da energia solar consumida. Taxas, encargos, Fio B, iluminacao publica, valores da concessionaria e multas/juros sao somados separadamente quando configurados.";
+  const explanation = "O desconto aplicado nesta proposta incide somente sobre o valor da energia solar considerada. Taxas, encargos, Fio B, iluminacao publica, valores da concessionaria e multas/juros sao somados separadamente quando configurados.";
   ensureSpace(ctx, 50);
   ctx.page.drawRectangle({ x: 42, y: ctx.y - 44, width: 511, height: 44, color: colors.lightGray });
   drawText(ctx, explanation, 54, ctx.y - 15, { size: 8.5, maxWidth: 486, color: colors.gray });

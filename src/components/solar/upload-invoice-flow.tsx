@@ -281,7 +281,7 @@ export function UploadInvoiceFlow() {
   } = form;
 
   const watched = useWatch({ control: form.control }) as InvoiceCalculationSchema;
-  const dueParts = getDueParts(watched.dueDate);
+  const [dueParts, setDueParts] = useState(() => getDueParts(defaultValues.dueDate));
 
   const preview = useMemo(() => {
     return calculateInvoice({
@@ -309,7 +309,9 @@ export function UploadInvoiceFlow() {
       const preferences = JSON.parse(raw) as Partial<InvoiceCalculationSchema & { rememberedPdfPassword?: string; defaultDueDay?: string }>;
       if (preferences.defaultDueDay) {
         const current = new Date();
-        setValue("dueDate", buildDueDate(preferences.defaultDueDay, String(current.getMonth() + 1), String(current.getFullYear())));
+        const rememberedDueDate = buildDueDate(preferences.defaultDueDay, String(current.getMonth() + 1), String(current.getFullYear()));
+        setValue("dueDate", rememberedDueDate);
+        window.setTimeout(() => setDueParts(getDueParts(rememberedDueDate)), 0);
       }
       if (preferences.pixKey) setValue("pixKey", preferences.pixKey);
       if (preferences.receiverName) setValue("receiverName", preferences.receiverName);
@@ -356,6 +358,10 @@ export function UploadInvoiceFlow() {
     try {
       const draft = JSON.parse(raw) as InvoiceDraft;
       if (draft.sourceInvoiceId) setValue("sourceInvoiceId", draft.sourceInvoiceId);
+      if (draft.dueDate) {
+        setValue("dueDate", draft.dueDate, { shouldValidate: true });
+        window.setTimeout(() => setDueParts(getDueParts(draft.dueDate)), 0);
+      }
       if (draft.client?.id) setValue("client.id", draft.client.id);
       if (draft.client?.ucCode) setValue("client.ucCode", draft.client.ucCode, { shouldValidate: true });
       if (draft.client?.name) setValue("client.name", draft.client.name, { shouldValidate: true });
@@ -413,7 +419,10 @@ export function UploadInvoiceFlow() {
   }
 
   function setDuePart(part: "day" | "month" | "year", value: string) {
-    const next = { ...dueParts, [part]: value };
+    const maxLength = part === "year" ? 4 : 2;
+    const normalizedValue = value.replace(/\D/g, "").slice(0, maxLength);
+    const next = { ...dueParts, [part]: normalizedValue };
+    setDueParts(next);
     setValue("dueDate", buildDueDate(next.day, next.month, next.year), { shouldDirty: true, shouldValidate: true });
   }
 
@@ -456,7 +465,10 @@ export function UploadInvoiceFlow() {
     setClientTextIfUseful("email", data.email);
     setClientTextIfUseful("phone", data.phone, { mask: maskBrazilianPhone });
     if (data.referenceMonth) setValue("referenceMonth", data.referenceMonth, { shouldValidate: true });
-    if (data.dueDate) setValue("dueDate", data.dueDate, { shouldValidate: true });
+    if (data.dueDate) {
+      setValue("dueDate", data.dueDate, { shouldValidate: true });
+      setDueParts(getDueParts(data.dueDate));
+    }
     if (data.totalConsumptionKwh !== undefined) setValue("totalConsumptionKwh", data.totalConsumptionKwh);
     if (data.solarConsumptionKwh !== undefined) setValue("solarConsumptionKwh", data.solarConsumptionKwh, { shouldValidate: true });
     if (data.accumulatedCreditKwh !== undefined) setValue("accumulatedCreditKwh", data.accumulatedCreditKwh);
@@ -810,9 +822,9 @@ export function UploadInvoiceFlow() {
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-slate-700">Vencimento</Label>
                   <div className="grid grid-cols-3 gap-2">
-                    <Input value={dueParts.day} onChange={(event) => setDuePart("day", event.target.value)} placeholder="Dia" inputMode="numeric" />
-                    <Input value={dueParts.month} onChange={(event) => setDuePart("month", event.target.value)} placeholder="Mes" inputMode="numeric" />
-                    <Input value={dueParts.year} onChange={(event) => setDuePart("year", event.target.value)} placeholder="Ano" inputMode="numeric" />
+                    <Input value={dueParts.day} onChange={(event) => setDuePart("day", event.target.value)} placeholder="Dia" inputMode="numeric" maxLength={2} aria-label="Dia do vencimento" />
+                    <Input value={dueParts.month} onChange={(event) => setDuePart("month", event.target.value)} placeholder="Mes" inputMode="numeric" maxLength={2} aria-label="Mes do vencimento" />
+                    <Input value={dueParts.year} onChange={(event) => setDuePart("year", event.target.value)} placeholder="Ano" inputMode="numeric" maxLength={4} aria-label="Ano do vencimento" />
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-xs text-destructive">{errors.dueDate?.message}</p>
@@ -823,7 +835,7 @@ export function UploadInvoiceFlow() {
                 <Field label="Consumo Total" helper="Campo numerico em kWh" missing={missing("totalConsumptionKwh")}>
                   <Input type="number" step="0.001" {...register("totalConsumptionKwh", { valueAsNumber: true })} />
                 </Field>
-                <Field label="Energia solar consumida" error={errors.solarConsumptionKwh?.message} helper="Se nao localizado no PDF, o sistema replica temporariamente o total consumido." missing={missing("solarConsumptionKwh")}>
+                <Field label="Energia solar considerada na proposta" error={errors.solarConsumptionKwh?.message} helper="Sem historico solar, informe os kWh que a proposta devera atender. Pode usar o consumo total ou a media mensal prevista." missing={missing("solarConsumptionKwh")}>
                   <Input type="number" step="0.001" {...register("solarConsumptionKwh", { valueAsNumber: true })} />
                 </Field>
                 {missing("solarConsumptionKwh") && watched.totalConsumptionKwh ? (

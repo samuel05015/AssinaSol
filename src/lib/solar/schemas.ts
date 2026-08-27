@@ -4,6 +4,20 @@ import { onlyDigits } from "./format";
 const optionalString = z.string().trim().optional().or(z.literal(""));
 const nonNegativeNumber = z.coerce.number().min(0, "Informe um valor maior ou igual a zero");
 
+function isValidIsoDate(value: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+
+  return date.getUTCFullYear() === year
+    && date.getUTCMonth() === month - 1
+    && date.getUTCDate() === day;
+}
+
 function isValidCpf(value: string) {
   const cpf = onlyDigits(value);
   if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
@@ -92,9 +106,9 @@ export const invoiceCalculationSchema = z.object({
   client: clientSchema,
   invoiceNumber: optionalString,
   referenceMonth: z.string().trim().min(1, "Mes de referencia obrigatorio"),
-  dueDate: z.string().min(1, "Vencimento obrigatorio"),
+  dueDate: z.string().min(1, "Vencimento obrigatorio").refine(isValidIsoDate, "Informe uma data de vencimento valida"),
   totalConsumptionKwh: nonNegativeNumber.optional(),
-  solarConsumptionKwh: z.coerce.number().positive("Energia solar consumida obrigatoria"),
+  solarConsumptionKwh: z.coerce.number().positive("Energia solar considerada obrigatoria"),
   accumulatedCreditKwh: nonNegativeNumber.optional(),
   pricePerKwh: z.coerce.number().positive("Preco por kWh obrigatorio"),
   discountPercent: nonNegativeNumber,

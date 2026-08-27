@@ -93,7 +93,7 @@ export function calculateInvoice(input: InvoiceCalculationInput): InvoiceCalcula
     estimatedSavings,
     savingsPercent,
     resolutionLines: [
-      `Consumo solar utilizado: ${formatKwh(input.solarConsumptionKwh)}`,
+      `Energia solar considerada: ${formatKwh(input.solarConsumptionKwh)}`,
       `Valor do kWh contratado: ${formatCurrency(input.pricePerKwh)}`,
       `Calculo da energia: ${formatNumber(input.solarConsumptionKwh, 2)} kWh x ${formatCurrency(input.pricePerKwh)} = ${formatCurrency(energySubtotal)}`,
       `Desconto aplicado: ${formatCurrency(energySubtotal)} x ${formatNumber(input.discountPercent, 2)}% = ${formatCurrency(discountValue)}`,
