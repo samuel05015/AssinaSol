@@ -509,6 +509,7 @@ export function UploadInvoiceFlow() {
 
       const data = await parseJsonResponse<ExtractedInvoiceData>(await fetch("/api/invoices/extract-pdf", {
         method: "POST",
+        headers: getAuthHeaders(),
         body: payload,
       }));
 
