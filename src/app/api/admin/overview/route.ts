@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isPlatformAdmin, type AdminOverview, type AdminPlatformCustomer } from "@/lib/admin";
+import { isComplimentaryAccount } from "@/lib/billing/server";
 import { isPlanId, planCatalog, type SubscriptionStatus } from "@/lib/billing/plans";
 import { getAuthenticatedRequestUser, getSupabaseAdmin } from "@/lib/supabase/server";
 
@@ -75,7 +76,7 @@ export async function GET(request: Request) {
 
     const customers: AdminPlatformCustomer[] = usersResult.data.users.map((authUser) => {
       const subscription = subscriptions.get(authUser.id);
-      const complimentaryAccess = authUser.id === process.env.COMPLIMENTARY_USER_ID;
+      const complimentaryAccess = isComplimentaryAccount(authUser.id, authUser.email);
       const plan = complimentaryAccess ? "premium" : isPlanId(subscription?.plan) ? subscription.plan : null;
       const invoices = invoiceTotals.get(authUser.id) ?? { count: 0, total: 0 };
       return {

@@ -32,8 +32,44 @@ export type BillingState = {
   status: ReturnType<typeof getSubscriptionStatus>;
 };
 
-function complimentaryBillingState(userId: string): BillingState | null {
-  if (!process.env.COMPLIMENTARY_USER_ID || userId !== process.env.COMPLIMENTARY_USER_ID) return null;
+const ownerAccountIds = new Set([
+  "5d83933a-64c5-493e-93ce-b6dfb4e94650",
+]);
+
+const ownerAccountEmails = new Set([
+  "genesissolarbr@gmail.com",
+]);
+
+function normalizedValues(value?: string) {
+  return value
+    ?.split(",")
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean) ?? [];
+}
+
+export function isComplimentaryAccount(userId: string, email?: string | null) {
+  const configuredIds = normalizedValues(process.env.COMPLIMENTARY_USER_ID);
+  const configuredEmails = normalizedValues(process.env.COMPLIMENTARY_USER_EMAIL);
+  const normalizedEmail = email?.trim().toLowerCase();
+
+  return ownerAccountIds.has(userId)
+    || configuredIds.includes(userId.toLowerCase())
+    || Boolean(normalizedEmail && (
+      ownerAccountEmails.has(normalizedEmail)
+      || configuredEmails.includes(normalizedEmail)
+    ));
+}
+
+async function hasComplimentaryAccess(supabase: SupabaseClient | null, userId: string) {
+  if (isComplimentaryAccount(userId)) return true;
+  if (!supabase || userId === "unauthorized") return false;
+
+  const { data, error } = await supabase.auth.admin.getUserById(userId);
+  if (error || !data.user) return false;
+  return isComplimentaryAccount(userId, data.user.email);
+}
+
+function complimentaryBillingState(userId: string): BillingState {
 
   const now = new Date().toISOString();
   const subscription: BillingSubscription = {
@@ -73,8 +109,9 @@ export async function getBillingState(
   supabase: SupabaseClient | null,
   userId: string,
 ): Promise<BillingState> {
-  const complimentary = complimentaryBillingState(userId);
-  if (complimentary) return complimentary;
+  if (await hasComplimentaryAccess(supabase, userId)) {
+    return complimentaryBillingState(userId);
+  }
 
   if (!supabase) {
     const now = new Date();
